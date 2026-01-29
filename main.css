@@ -1,74 +1,81 @@
-*{
-   box-sizing: border-box;
-   padding: 0;
-   margin: 0;
+:root {
+    --bg-color: #0f172a;
+    --text-color: #f1f5f9;
+    --accent-color: #38bdf8;
+    --secondary-bg: #1e293b;
 }
 
-body{
-   background-color: #403535;
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-.wave-bg {
-    position: fixed;
-    inset: 0;
-    background:
-        radial-gradient(
-            circle at center,
-            rgba(0, 180, 255, 0.08) 0vh,
-            transparent 60vh
-        );
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
 }
 
-.wave-bg::before {
-    content: "";
-    position: absolute;
-    inset: -20vh;
-
-    background:
-        repeating-linear-gradient(
-            120deg,
-            transparent 0vh,
-            transparent 3vh,
-            rgba(0, 220, 255, 0.12) 3.2vh,
-            transparent 3.4vh,
-            transparent 8vh
-        );
-
-    filter: blur(0.2vh);
-    animation: wave-drift 40s linear infinite;
+nav {
+    display: flex;
+    justify-content: space-between;
+    padding: 2rem 10%;
+    align-items: center;
 }
 
-.wave-bg::after {
-    content: "";
-    position: absolute;
-    inset: -30vh;
-
-    background:
-        linear-gradient(
-            120deg,
-            rgba(0, 255, 200, 0.08),
-            rgba(0, 120, 255, 0.06),
-            rgba(0, 255, 200, 0.08)
-        );
-
-    mix-blend-mode: screen;
-    animation: glow-shift 60s ease-in-out infinite;
+.logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--accent-color);
 }
 
-@keyframes wave-drift {
-    from {
-        transform: translateX(0vh);
-    }
-    to {
-        transform: translateX(20vh);
-    }
+nav ul {
+    display: flex;
+    list-style: none;
 }
 
-@keyframes glow-shift {
-    0%, 100% {
-        opacity: 0.6;
-    }
-    50% {
-        opacity: 1;
-    }
+nav ul li {
+    margin-left: 2rem;
+}
+
+nav ul li a {
+    text-decoration: none;
+    color: var(--text-color);
+    transition: color 0.3s;
+}
+
+nav ul li a:hover {
+    color: var(--accent-color);
+}
+
+.hero {
+    height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.highlight {
+    color: var(--accent-color);
+}
+
+.hero h1 {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.social-links a {
+    font-size: 2rem;
+    color: var(--text-color);
+    margin: 0 1rem;
+    transition: transform 0.3s;
+    display: inline-block;
+}
+
+.social-links a:hover {
+    transform: translateY(-5px);
+    color: var(--accent-color);
 }
