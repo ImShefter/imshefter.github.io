@@ -320,19 +320,31 @@
       const target = document.getElementById(`icon-opt-${iconClass}`);
       if (target) target.classList.add('selected');
     }
+async function autenticar() {
+  const input = document.getElementById('pass-input').value.trim();
+  if (!input) return alert("Ingresa una contraseña");
 
-    async function autenticar() {
-      const input = document.getElementById('pass-input').value.trim();
-      if (!input) return alert("Ingresa una contraseña");
+  const { data, error } = await supabaseClient.rpc('verify_access', { pass: input });
+  if (error || !data) {
+    playSound('back');
+    return alert("Contraseña incorrecta");
+  }
 
-      const { data, error } = await supabaseClient.rpc('verify_access', { pass: input });
-      if (error || !data) return alert("Contraseña incorrecta");
+  playSound('select');
+  sessionPass = input;
+  document.getElementById('login-overlay').style.display = 'none';
+  
+  // Inicializamos el mapa
+  initMap();
+  
+  // Carga inicial de puntos
+  cargarPuntos();
 
-      sessionPass = input;
-      document.getElementById('login-overlay').style.display = 'none';
-      initMap();
-      cargarPuntos();
-    }
+  // 🔄 ACTUALIZACIÓN AUTOMÁTICA CADA 2 SEGUNDOS (2000 ms)
+  setInterval(() => {
+    cargarPuntos();
+  }, 2000);
+}
 
     function iniciarSincronizacionRealtime() {
       const room = supabaseClient.channel('map-room', {
