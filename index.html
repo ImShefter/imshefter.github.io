@@ -175,9 +175,22 @@
     .color-option {
       width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
       border: 2px solid transparent; transition: transform 0.2s, border-color 0.2s;
+      display: flex; align-items: center; justify-content: center;
     }
     .color-option:hover { transform: scale(1.1); }
     .color-option.selected { border-color: #ffffff; transform: scale(1.15); box-shadow: 0 0 8px rgba(255,255,255,0.8); }
+
+    /* Estilo especial para la opción Transparente */
+    .color-option[data-color="transparent"] {
+      border: 1px dashed #666;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .color-option[data-color="transparent"]::after {
+      content: "✕";
+      color: #888;
+      font-size: 14px;
+      font-weight: bold;
+    }
 
     /* Grid Selector de Blips / Iconos */
     .icon-selector {
@@ -208,12 +221,20 @@
       background: #1a1b20; 
       border: 2px solid var(--marker-color, #ffffff); 
       border-radius: 50%;
-      color: var(--marker-color, #ffffff); 
+      color: var(--marker-text-color, #ffffff); 
       text-align: center; 
       line-height: 28px; 
       font-size: 14px;
-      box-shadow: 0 0 10px var(--marker-color, rgba(0,0,0,0.8));
+      box-shadow: 0 0 10px var(--marker-glow, rgba(0,0,0,0.8));
     }
+
+    /* Cuando el color es transparente */
+    .gta-marker-icon.is-transparent {
+      border-color: #ffffff;
+      color: #ffffff;
+      box-shadow: 0 0 8px rgba(0,0,0,0.8);
+    }
+
     .leaflet-popup-content-wrapper {
       background: #1c1d22 !important; color: #fff !important; border: 1px solid #568c1c; border-radius: 6px;
     }
@@ -304,9 +325,10 @@
     let tempLatLng = null;
     let editingMarkerId = null;
     let selectedIcon = "fa-location-dot";
-    let selectedColor = "#8ef73c"; // Verde por defecto
+    let selectedColor = "transparent"; // 👈 Transparente por defecto
 
     const PALETTE = [
+      { name: "Sin Color / Transparente", hex: "transparent" },
       { name: "Verde Neón", hex: "#8ef73c" },
       { name: "Azul LSPD", hex: "#3b82f6" },
       { name: "Rojo EMS", hex: "#ef4444" },
@@ -409,13 +431,16 @@
       PALETTE.forEach((col) => {
         const div = document.createElement('div');
         div.className = 'color-option';
+        div.dataset.color = col.hex;
         div.id = `col-opt-${col.hex.replace('#', '')}`;
-        div.style.backgroundColor = col.hex;
+        if (col.hex !== 'transparent') {
+          div.style.backgroundColor = col.hex;
+        }
         div.title = col.name;
         div.onclick = () => seleccionarColor(col.hex);
         container.appendChild(div);
       });
-      seleccionarColor('#8ef73c');
+      seleccionarColor('transparent');
     }
 
     function seleccionarColor(hex) {
@@ -499,21 +524,29 @@
       mapMarkers = {};
 
       rawMarkersData.forEach(m => {
-        const color = m.color || '#8ef73c';
+        const color = m.color || 'transparent';
+        const isTransparent = color === 'transparent';
+        
         const customIcon = L.divIcon({
-          className: 'gta-marker-icon',
-          html: `<i class="fa-solid ${m.icon || 'fa-location-dot'}" style="--marker-color: ${color}"></i>`,
+          className: `gta-marker-icon ${isTransparent ? 'is-transparent' : ''}`,
+          html: `<i class="fa-solid ${m.icon || 'fa-location-dot'}"></i>`,
           iconSize: [32, 32],
           iconAnchor: [16, 16]
         });
 
-        // Modificamos el estilo en el HTML dinámico
         const marker = L.marker([m.lat, m.lng], { icon: customIcon }).addTo(map);
-        marker.getElement()?.style.setProperty('--marker-color', color);
+        
+        if (!isTransparent) {
+          marker.getElement()?.style.setProperty('--marker-color', color);
+          marker.getElement()?.style.setProperty('--marker-text-color', color);
+          marker.getElement()?.style.setProperty('--marker-glow', color);
+        }
+
+        const titleColor = isTransparent ? '#8ef73c' : color;
 
         marker.bindPopup(`
           <div style="text-align: center;">
-            <h4 style="margin-bottom: 5px; color: ${color}; font-size: 15px;">${m.title}</h4>
+            <h4 style="margin-bottom: 5px; color: ${titleColor}; font-size: 15px;">${m.title}</h4>
             <p style="font-size: 12px; color: #ccc;">${m.description || 'Sin descripción'}</p>
             <div class="popup-buttons">
               <button class="btn-popup-edit" onclick="abrirModalEditar('${m.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
@@ -565,7 +598,9 @@
 
         const currentMarker = lista[categoryIndexes[titleKey]];
         const iconKey = currentMarker.icon || 'fa-location-dot';
-        const colorKey = currentMarker.color || '#8ef73c';
+        const colorKey = (currentMarker.color && currentMarker.color !== 'transparent') 
+          ? currentMarker.color 
+          : '#568c1c';
 
         const itemDiv = document.createElement('div');
         itemDiv.className = 'gta-menu-item';
@@ -614,7 +649,7 @@
       document.getElementById('modal-title-text').innerText = 'AGREGAR PUNTO DE INTERÉS';
       document.getElementById('marker-title').value = '';
       document.getElementById('marker-desc').value = '';
-      seleccionarColor('#8ef73c');
+      seleccionarColor('transparent');
       seleccionarIcono('fa-location-dot');
       
       document.getElementById('marker-modal').style.display = 'flex';
@@ -630,7 +665,7 @@
       document.getElementById('modal-title-text').innerText = 'EDITAR PUNTO DE INTERÉS';
       document.getElementById('marker-title').value = m.title;
       document.getElementById('marker-desc').value = m.description || '';
-      seleccionarColor(m.color || '#8ef73c');
+      seleccionarColor(m.color || 'transparent');
       seleccionarIcono(m.icon || 'fa-location-dot');
 
       document.getElementById('marker-modal').style.display = 'flex';
