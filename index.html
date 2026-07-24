@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapa Roleplay GTA V</title>
+  
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- FontAwesome 6 / Iconos -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Arial', sans-serif; }
+    body, html { height: 100%; width: 100%; background: #000; color: #fff; overflow: hidden; }
+
+    /* Pantalla de Contraseña */
+    #login-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.92); z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .login-box {
+      background: #18191d; padding: 30px; border-radius: 6px; border: 2px solid #568c1c;
+      text-align: center; max-width: 400px; width: 90%; box-shadow: 0 0 25px rgba(0,0,0,0.9);
+    }
+    .login-box h2 { font-size: 22px; margin-bottom: 15px; color: #f0f0f0; letter-spacing: 2px; }
+    .login-box input {
+      width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 4px;
+      border: 1px solid #333; background: #24262d; color: white; text-align: center; font-size: 16px;
+    }
+    .login-box button {
+      width: 100%; padding: 12px; background: #568c1c; border: none;
+      color: white; font-weight: bold; cursor: pointer; border-radius: 4px; font-size: 15px; letter-spacing: 1px;
+    }
+    .login-box button:hover { background: #68aa22; }
+
+    /* Layout Principal */
+    #app-container { display: flex; width: 100vw; height: 100vh; }
+
+    /* Menú Lateral */
+    #gta-sidebar {
+      width: 320px; background: rgba(18, 19, 23, 0.95); border-right: 2px solid #333;
+      display: flex; flex-direction: column; z-index: 1000; box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+    }
+    .sidebar-header {
+      background: #121317; padding: 15px; border-bottom: 2px solid #568c1c;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .sidebar-header h3 { font-size: 15px; letter-spacing: 1.5px; color: #f0f0f0; text-transform: uppercase; }
+    .sidebar-header .live-badge {
+      font-size: 11px; background: #232d18; color: #8ef73c; border: 1px solid #568c1c; padding: 4px 8px; border-radius: 4px; font-weight: bold;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .live-dot {
+      width: 8px; height: 8px; background-color: #8ef73c; border-radius: 50%;
+      box-shadow: 0 0 8px #8ef73c; animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.3; }
+      100% { opacity: 1; }
+    }
+
+    .sidebar-list { flex: 1; overflow-y: auto; padding: 10px 0; }
+    
+    .gta-menu-item {
+      background: #1c1e24; margin: 4px 10px; padding: 12px 15px; border-radius: 4px;
+      display: flex; justify-content: space-between; align-items: center;
+      border-left: 4px solid #568c1c; transition: all 0.2s;
+    }
+    .gta-menu-item:hover { background: #2a2d36; border-left-color: #8ef73c; }
+    .gta-menu-item i { width: 20px; text-align: center; color: #8ef73c; font-size: 15px; }
+    .gta-menu-item span { font-size: 14px; font-weight: 500; color: #eee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .item-nav { display: flex; align-items: center; gap: 6px; background: #121317; padding: 4px 8px; border-radius: 3px; }
+    .item-nav button {
+      background: none; border: none; color: #aaa; cursor: pointer; font-size: 12px; padding: 0 4px;
+    }
+    .item-nav button:hover { color: #fff; }
+    .item-nav span { font-size: 11px; color: #8ef73c; font-weight: bold; }
+
+    /* Modal */
+    #marker-modal {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85); z-index: 9998;
+      align-items: center; justify-content: center;
+    }
+    .modal-content {
+      background: #1e2026; padding: 25px; border-radius: 8px; border: 1px solid #333;
+      width: 90%; max-width: 550px; box-shadow: 0 0 20px rgba(0,0,0,0.8);
+    }
+    .modal-content h3 { margin-bottom: 15px; color: #568c1c; font-size: 18px; letter-spacing: 1px; }
+    .modal-content input, .modal-content textarea {
+      width: 100%; padding: 10px; margin-bottom: 12px; border-radius: 4px;
+      border: 1px solid #333; background: #2b2d35; color: white; font-size: 14px;
+    }
+    .modal-content textarea { resize: vertical; height: 50px; }
+
+    /* Grid Selector de Blips / Iconos (Ampliado a 8 columnas) */
+    .icon-selector {
+      display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px;
+      max-height: 220px; overflow-y: auto; padding: 10px; background: #141518;
+      border: 1px solid #2d3038; border-radius: 4px; margin-bottom: 15px;
+    }
+    .icon-option {
+      background: #252830; border: 2px solid transparent; border-radius: 4px;
+      padding: 8px 0; text-align: center; cursor: pointer; font-size: 15px; color: #ddd;
+      transition: all 0.2s;
+    }
+    .icon-option:hover { background: #323642; color: #fff; }
+    .icon-option.selected { border-color: #568c1c; background: #2c3e1e; color: #8ef73c; }
+
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    .btn-cancel { background: #444; color: #fff; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; }
+    .btn-save { background: #568c1c; color: #fff; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+
+    /* Mapa */
+    #map { flex: 1; height: 100vh; background: #1862ad; }
+
+    .gta-marker-icon {
+      background: #1a1b20; border: 2px solid #ffffff; border-radius: 50%;
+      color: #fff; text-align: center; line-height: 30px; font-size: 14px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.8);
+    }
+    .leaflet-popup-content-wrapper {
+      background: #1c1d22 !important; color: #fff !important; border: 1px solid #568c1c; border-radius: 6px;
+    }
+    .leaflet-popup-tip { background: #1c1d22 !important; }
+    
+    /* Botones dentro del Popup del Mapa */
+    .popup-buttons { display: flex; gap: 6px; justify-content: center; margin-top: 10px; }
+    .btn-popup-edit { background: #2b5c8f; color: #fff; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: bold; }
+    .btn-popup-edit:hover { background: #3772b0; }
+    .btn-popup-del { background: #8b0000; color: #fff; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: bold; }
+    .btn-popup-del:hover { background: #ab0000; }
+  </style>
+</head>
+<body>
+
+  <!-- Overlay de Acceso -->
+  <div id="login-overlay">
+    <div class="login-box">
+      <h2>LOS SANTOS ROLEPLAY</h2>
+      <p style="margin-bottom: 15px; font-size: 13px; color: #aaa;">Ingresa la contraseña del servidor</p>
+      <input type="password" id="pass-input" placeholder="Contraseña..." onkeypress="if(event.key==='Enter') autenticar()">
+      <button onclick="autenticar()">INGRESAR AL MAPA</button>
+    </div>
+  </div>
+
+  <!-- Modal para Agregar / Editar Punto -->
+  <div id="marker-modal">
+    <div class="modal-content">
+      <h3 id="modal-title-text">AGREGAR PUNTO DE INTERÉS</h3>
+      <input type="text" id="marker-title" placeholder="Título (Ej: Comisaría Central, Garaje...)">
+      <textarea id="marker-desc" placeholder="Descripción breve..."></textarea>
+      
+      <p style="font-size: 12px; color: #aaa; margin-bottom: 8px;">Seleccionar Símbolo / Blip (64 Disponibles):</p>
+      <div class="icon-selector" id="icon-selector"></div>
+
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="cerrarModal()">Cancelar</button>
+        <button class="btn-save" onclick="guardarPunto()">Guardar Punto</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Aplicación Principal -->
+  <div id="app-container">
+    <div id="gta-sidebar">
+      <div class="sidebar-header">
+        <h3>PUNTOS DE INTERÉS</h3>
+        <span class="live-badge" id="online-counter">
+          <span class="live-dot"></span> 1 ONLINE
+        </span>
+      </div>
+      <div class="sidebar-list" id="sidebar-list">
+        <p style="padding: 15px; color: #777; font-size: 13px; text-align: center;">Cargando puntos...</p>
+      </div>
+    </div>
+
+    <div id="map"></div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://hhcnenkiflhcixdfqcgp.supabase.co"; 
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoY25lbmtpZmxoY2l4ZGZxY2dwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3ODU5NTcsImV4cCI6MjEwMDM2MTk1N30.d05_sstrpAxb-QXwAJugDBHha70zvs5-eXB-68eDlHU";
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let sessionPass = "";
+    let map;
+    let mapMarkers = {}; 
+    let rawMarkersData = []; 
+    let categoryIndexes = {}; 
+    let tempLatLng = null;
+    let editingMarkerId = null;
+    let selectedIcon = "fa-location-dot";
+
+    // LISTADO COMPLETO DE 64 BLIPS Y SÍMBOLOS PARA GTA V ROLEPLAY
+    const BLIPS = [
+      // BÁSICOS Y UBICACIÓN
+      { id: 'fa-location-dot', name: 'Punto Estándar' },
+      { id: 'fa-map-pin', name: 'Pin de Mapa' },
+      { id: 'fa-compass', name: 'Brújula / Orientación' },
+      { id: 'fa-flag', name: 'Bandera / Meta' },
+
+      // SEGURIDAD / POLICÍA / EMERGENCIA
+      { id: 'fa-shield-halved', name: 'Comisaría / LSPD' },
+      { id: 'fa-user-shield', name: 'Agente / Agente Especial' },
+      { id: 'fa-kit-medical', name: 'Hospital / EMS' },
+      { id: 'fa-user-nurse', name: 'Doctor / Enfermero' },
+      { id: 'fa-truck-medical', name: 'Ambulancia' },
+      { id: 'fa-fire-extinguisher', name: 'Bomberos / Fuego' },
+      { id: 'fa-handcuffs', name: 'Prisión / Arresto' },
+
+      // CRIMEN / ILEGAL / BANDAS
+      { id: 'fa-gun', name: 'Armería / Ammu-Nation' },
+      { id: 'fa-cannabis', name: 'Drogas / Plantación' },
+      { id: 'fa-pills', name: 'Químicos / Fármacos' },
+      { id: 'fa-mask', name: 'Máscaras / Atraco' },
+      { id: 'fa-skull', name: 'Zona Peligrosa / Muerte' },
+      { id: 'fa-user-ninja', name: 'Mafia / Contacto Ilegal' },
+      { id: 'fa-crosshairs', name: 'Zona de Tiro / Enfrascamiento' },
+
+      // BANCOS / ROBO / DINERO
+      { id: 'fa-building-columns', name: 'Banco Central / Gobierno' },
+      { id: 'fa-sack-dollar', name: 'Robo a Banco / Bolsa de Dinero' },
+      { id: 'fa-vault', name: 'Caja Fuerte' },
+      { id: 'fa-money-bill-wave', name: 'Efectivo / Lavado' },
+      { id: 'fa-credit-card', name: 'Cajero / ATM' },
+      { id: 'fa-gem', name: 'Joyería / Objeto de Valor' },
+
+      // VEHÍCULOS / TALLER / GARAJES
+      { id: 'fa-car', name: 'Garaje público' },
+      { id: 'fa-car-side', name: 'Depósito de Vehículos' },
+      { id: 'fa-motorcycle', name: 'Motos / Banda Motera' },
+      { id: 'fa-wrench', name: 'Taller / Mecánico' },
+      { id: 'fa-oil-can', name: 'Aceite / Repuestos' },
+      { id: 'fa-gas-pump', name: 'Gasolinera' },
+      { id: 'fa-charging-station', name: 'Cargador Eléctrico' },
+
+      // TRANSPORTES AÉREOS Y MARÍTIMOS
+      { id: 'fa-helicopter', name: 'Helipuerto' },
+      { id: 'fa-plane', name: 'Aeropuerto / Aviones' },
+      { id: 'fa-anchor', name: 'Puerto / Embarcadero' },
+      { id: 'fa-ship', name: 'Barco / Yates' },
+
+      // INMUEBLES / PROPIEDADES
+      { id: 'fa-house', name: 'Piso Franco / Casa' },
+      { id: 'fa-building', name: 'Sede / Edificio' },
+      { id: 'fa-store', name: 'Local Comercial' },
+      { id: 'fa-key', name: 'Cerradura / Alquiler' },
+
+      // COMERCIOS Y SERVICIOS
+      { id: 'fa-cart-shopping', name: 'Tienda 24/7' },
+      { id: 'fa-shirt', name: 'Tienda de Ropa' },
+      { id: 'fa-scissors', name: 'Peluquería / Barbería' },
+      { id: 'fa-spray-can', name: 'Tatuajes / Grafiti' },
+      { id: 'fa-utensils', name: 'Restaurante / Comida' },
+      { id: 'fa-burger', name: 'Comida Rápida' },
+      { id: 'fa-martini-glass-citrus', name: 'Bar / Club' },
+      { id: 'fa-beer-mug-empty', name: 'Pub / Discoteca' },
+
+      // TRABAJOS Y LOGÍSTICA
+      { id: 'fa-box', name: 'Almacén / Entrega' },
+      { id: 'fa-truck-fast', name: 'Camionero / Envíos' },
+      { id: 'fa-briefcase', name: 'Oficina / Trabajo Legal' },
+      { id: 'fa-wheat-awn', name: 'Granja / Cultivos' },
+      { id: 'fa-fish', name: 'Zona de Pesca' },
+      { id: 'fa-pickaxe', name: 'Minería / Cantera' },
+
+      // OTROS Y UTILIDADES
+      { id: 'fa-phone', name: 'Cabina / Teléfono' },
+      { id: 'fa-camera', name: 'Fotógrafo / Radar' },
+      { id: 'fa-radio', name: 'Emisora / Frecuencia' },
+      { id: 'fa-trophy', name: 'Carreras / Evento' },
+      { id: 'fa-dice', name: 'Casino / Apuestas' },
+      { id: 'fa-dumbbell', name: 'Gimnasio' },
+      { id: 'fa-eye', name: 'Vigilancia / CÁMARA' },
+      { id: 'fa-triangle-exclamation', name: 'Advertencia' },
+      { id: 'fa-circle-info', name: 'Punto Informativo' },
+      { id: 'fa-question', name: 'Duda / Misterio' }
+    ];
+
+    function initMap() {
+      map = L.map('map', { minZoom: 1, maxZoom: 6, crs: L.CRS.Simple });
+      const bounds = [[0, 0], [1000, 1000]];
+      L.imageOverlay('https://r2.fivemanage.com/0nRQ83ThoMDRWRHINs4nh/GTAV-HD-MAP-roadmap.jpg', bounds).addTo(map);
+      map.fitBounds(bounds);
+
+      map.on('click', onMapClick);
+      generarGaleriaIconos();
+      iniciarSincronizacionRealtime();
+    }
+
+    function generarGaleriaIconos() {
+      const container = document.getElementById('icon-selector');
+      container.innerHTML = '';
+      BLIPS.forEach((blip) => {
+        const div = document.createElement('div');
+        div.className = 'icon-option';
+        div.id = `icon-opt-${blip.id}`;
+        div.title = blip.name;
+        div.innerHTML = `<i class="fa-solid ${blip.id}"></i>`;
+        div.onclick = () => seleccionarIcono(blip.id);
+        container.appendChild(div);
+      });
+      seleccionarIcono('fa-location-dot');
+    }
+
+    function seleccionarIcono(iconClass) {
+      selectedIcon = iconClass;
+      document.querySelectorAll('.icon-option').forEach(el => el.classList.remove('selected'));
+      const target = document.getElementById(`icon-opt-${iconClass}`);
+      if (target) target.classList.add('selected');
+    }
+
+    async function autenticar() {
+      const input = document.getElementById('pass-input').value.trim();
+      if (!input) return alert("Ingresa una contraseña");
+
+      const { data, error } = await supabaseClient.rpc('verify_access', { pass: input });
+      if (error || !data) return alert("Contraseña incorrecta");
+
+      sessionPass = input;
+      document.getElementById('login-overlay').style.display = 'none';
+      initMap();
+      cargarPuntos();
+    }
+
+    function iniciarSincronizacionRealtime() {
+      const room = supabaseClient.channel('map-room', {
+        config: { presence: { key: 'user-' + Math.random().toString(36).substr(2, 5) } }
+      });
+
+      room.on('postgres_changes', { event: '*', schema: 'public', table: 'markers' }, () => {
+        cargarPuntos();
+      });
+
+      room.on('presence', { event: 'sync' }, () => {
+        const state = room.presenceState();
+        const count = Object.keys(state).length;
+        document.getElementById('online-counter').innerHTML = `<span class="live-dot"></span> ${count} ONLINE`;
+      });
+
+      room.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await room.track({ online_at: new Date().toISOString() });
+        }
+      });
+    }
+
+    async function cargarPuntos() {
+      const { data, error } = await supabaseClient.rpc('get_markers', { pass: sessionPass });
+      if (error) return console.error(error);
+
+      rawMarkersData = data || [];
+
+      Object.values(mapMarkers).forEach(m => map.removeLayer(m));
+      mapMarkers = {};
+
+      rawMarkersData.forEach(m => {
+        const customIcon = L.divIcon({
+          className: 'gta-marker-icon',
+          html: `<i class="fa-solid ${m.icon || 'fa-location-dot'}"></i>`,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16]
+        });
+
+        const marker = L.marker([m.lat, m.lng], { icon: customIcon }).addTo(map);
+        marker.bindPopup(`
+          <div style="text-align: center;">
+            <h4 style="margin-bottom: 5px; color: #568c1c; font-size: 15px;">${m.title}</h4>
+            <p style="font-size: 12px; color: #ccc;">${m.description || 'Sin descripción'}</p>
+            <div class="popup-buttons">
+              <button class="btn-popup-edit" onclick="abrirModalEditar('${m.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
+              <button class="btn-popup-del" onclick="borrarPunto('${m.id}')"><i class="fa-solid fa-trash"></i> Borrar</button>
+            </div>
+          </div>
+        `);
+        mapMarkers[m.id] = marker;
+      });
+
+      renderizarMenuGTA();
+    }
+
+    function renderizarMenuGTA() {
+      const container = document.getElementById('sidebar-list');
+      container.innerHTML = '';
+
+      if (rawMarkersData.length === 0) {
+        container.innerHTML = '<p style="padding: 15px; color: #666; font-size: 13px; text-align: center;">No hay puntos en el mapa.</p>';
+        return;
+      }
+
+      const grupos = {};
+      rawMarkersData.forEach(m => {
+        const titleKey = m.title.trim();
+        if (!grupos[titleKey]) grupos[titleKey] = [];
+        grupos[titleKey].push(m);
+      });
+
+      const titulosOrdenados = Object.keys(grupos).sort((a, b) => a.localeCompare(b));
+
+      titulosOrdenados.forEach(titleKey => {
+        const lista = grupos[titleKey];
+        
+        if (categoryIndexes[titleKey] === undefined) categoryIndexes[titleKey] = 0;
+        if (categoryIndexes[titleKey] >= lista.length) categoryIndexes[titleKey] = 0;
+
+        const currentMarker = lista[categoryIndexes[titleKey]];
+        const iconKey = currentMarker.icon || 'fa-location-dot';
+
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'gta-menu-item';
+        
+        itemDiv.innerHTML = `
+          <div style="flex:1; display:flex; align-items:center; gap:12px; cursor:pointer; overflow:hidden;" onclick="centrarEnPunto('${currentMarker.id}')">
+            <i class="fa-solid ${iconKey}"></i>
+            <span>${titleKey}</span>
+          </div>
+          ${lista.length > 1 ? `
+            <div class="item-nav">
+              <button onclick="navegarCarruselNombre(event, '${titleKey.replace(/'/g, "\\'")}', -1, ${lista.length})">‹</button>
+              <span>${categoryIndexes[titleKey] + 1}/${lista.length}</span>
+              <button onclick="navegarCarruselNombre(event, '${titleKey.replace(/'/g, "\\'")}', 1, ${lista.length})">›</button>
+            </div>
+          ` : ''}
+        `;
+
+        container.appendChild(itemDiv);
+      });
+    }
+
+    function navegarCarruselNombre(event, titleKey, delta, total) {
+      event.stopPropagation();
+      categoryIndexes[titleKey] = (categoryIndexes[titleKey] + delta + total) % total;
+      renderizarMenuGTA();
+
+      const lista = rawMarkersData.filter(m => m.title.trim() === titleKey);
+      const targetMarker = lista[categoryIndexes[titleKey]];
+      if (targetMarker) centrarEnPunto(targetMarker.id);
+    }
+
+    function centrarEnPunto(id) {
+      const marker = mapMarkers[id];
+      if (marker) {
+        map.flyTo(marker.getLatLng(), 4, { duration: 1.2 });
+        marker.openPopup();
+      }
+    }
+
+    function onMapClick(e) {
+      editingMarkerId = null;
+      tempLatLng = e.latlng;
+      
+      document.getElementById('modal-title-text').innerText = 'AGREGAR PUNTO DE INTERÉS';
+      document.getElementById('marker-title').value = '';
+      document.getElementById('marker-desc').value = '';
+      seleccionarIcono('fa-location-dot');
+      
+      document.getElementById('marker-modal').style.display = 'flex';
+    }
+
+    function abrirModalEditar(id) {
+      const m = rawMarkersData.find(item => item.id === id);
+      if (!m) return;
+
+      editingMarkerId = id;
+      tempLatLng = null;
+
+      document.getElementById('modal-title-text').innerText = 'EDITAR PUNTO DE INTERÉS';
+      document.getElementById('marker-title').value = m.title;
+      document.getElementById('marker-desc').value = m.description || '';
+      seleccionarIcono(m.icon || 'fa-location-dot');
+
+      document.getElementById('marker-modal').style.display = 'flex';
+    }
+
+    function cerrarModal() {
+      document.getElementById('marker-modal').style.display = 'none';
+      tempLatLng = null;
+      editingMarkerId = null;
+    }
+
+    async function guardarPunto() {
+      const title = document.getElementById('marker-title').value.trim();
+      const desc = document.getElementById('marker-desc').value.trim();
+
+      if (!title) return alert("Ingresa un título para el punto");
+
+      if (editingMarkerId) {
+        // MODO EDITAR
+        const { data, error } = await supabaseClient.rpc('update_marker', {
+          pass: sessionPass,
+          m_id: editingMarkerId,
+          m_title: title,
+          m_desc: desc,
+          m_icon: selectedIcon
+        });
+
+        if (error) {
+          console.error("Error al actualizar:", error);
+          alert("Error al actualizar el punto: " + error.message);
+        } else {
+          cerrarModal();
+          await cargarPuntos();
+        }
+
+      } else {
+        // MODO CREAR NUEVO
+        const { data, error } = await supabaseClient.rpc('add_marker', {
+          pass: sessionPass,
+          m_title: title,
+          m_desc: desc,
+          m_lat: tempLatLng.lat,
+          m_lng: tempLatLng.lng,
+          m_icon: selectedIcon
+        });
+
+        if (error) {
+          console.error("Error al guardar:", error);
+          alert("Error al guardar el punto: " + error.message);
+        } else {
+          cerrarModal();
+          await cargarPuntos();
+        }
+      }
+    }
+
+    async function borrarPunto(id) {
+      if (!confirm("¿Seguro que quieres borrar este punto?")) return;
+
+      const { error } = await supabaseClient.rpc('delete_marker', {
+        pass: sessionPass,
+        marker_id: id
+      });
+
+      if (error) alert("Error al eliminar el punto");
+    }
+  </script>
+</body>
+</html>
