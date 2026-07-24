@@ -179,6 +179,15 @@
         <span class="live-badge" id="online-counter">
           <span class="live-dot"></span> 1 ONLINE
         </span>
+        <div style="padding: 10px 10px 5px 10px;">
+        <input 
+          type="text" 
+          id="search-input" 
+          placeholder="🔍 Buscar punto..." 
+          oninput="renderizarMenuGTA()"
+          style="width: 100%; padding: 8px 12px; background: #24262d; border: 1px solid #333; border-radius: 4px; color: white; font-size: 13px; outline: none;"
+        >
+      </div>
       </div>
       <div class="sidebar-list" id="sidebar-list">
         <p style="padding: 15px; color: #777; font-size: 13px; text-align: center;">Cargando puntos...</p>
@@ -405,6 +414,7 @@
 
     function renderizarMenuGTA() {
       const container = document.getElementById('sidebar-list');
+      const searchVal = document.getElementById('search-input')?.value.toLowerCase().trim() || '';
       container.innerHTML = '';
 
       if (rawMarkersData.length === 0) {
@@ -412,8 +422,20 @@
         return;
       }
 
+      // Filtrar marcadores según el texto ingresado en el buscador
+      const puntosFiltrados = rawMarkersData.filter(m => {
+        const titleMatch = m.title.toLowerCase().includes(searchVal);
+        const descMatch = (m.description || '').toLowerCase().includes(searchVal);
+        return titleMatch || descMatch;
+      });
+
+      if (puntosFiltrados.length === 0) {
+        container.innerHTML = '<p style="padding: 15px; color: #666; font-size: 13px; text-align: center;">No se encontraron resultados.</p>';
+        return;
+      }
+
       const grupos = {};
-      rawMarkersData.forEach(m => {
+      puntosFiltrados.forEach(m => {
         const titleKey = m.title.trim();
         if (!grupos[titleKey]) grupos[titleKey] = [];
         grupos[titleKey].push(m);
