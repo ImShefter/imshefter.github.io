@@ -355,7 +355,7 @@
       maxZoom: 6, 
       crs: L.CRS.Simple,
       maxBounds: bounds,             // Restringe la vista a estos límites
-      maxBoundsViscosity: 1        // Hace que los bordes sean 100% rígidos (no rebota ni se desplaza hacia afuera)
+      maxBoundsViscosity: 0.8        // Hace que los bordes sean 100% rígidos (no rebota ni se desplaza hacia afuera)
   });
       L.imageOverlay('https://r2.fivemanage.com/0nRQ83ThoMDRWRHINs4nh/GTAV-HD-MAP-roadmap.jpg', bounds).addTo(map);
       map.fitBounds(bounds);
