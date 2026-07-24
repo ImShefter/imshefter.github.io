@@ -45,8 +45,14 @@
 
     /* Menú Lateral */
     #gta-sidebar {
-      width: 320px; background: rgba(18, 19, 23, 0.95); border-right: 2px solid #333;
-      display: flex; flex-direction: column; z-index: 1000; box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+      width: 320px; 
+      background: rgba(18, 19, 23, 0.95); 
+      border-right: 2px solid #333;
+      display: flex; 
+      flex-direction: column; 
+      height: 100vh;
+      z-index: 1000; 
+      box-shadow: 5px 0 15px rgba(0,0,0,0.5);
     }
     .sidebar-header {
       background: #121317; padding: 15px; border-bottom: 2px solid #568c1c;
@@ -86,6 +92,39 @@
     .item-nav button:hover { color: #fff; }
     .item-nav span { font-size: 11px; color: #8ef73c; font-weight: bold; }
 
+    /* Footer del Sidebar para el Buscador */
+    .sidebar-footer {
+      padding: 12px;
+      background: #121317;
+      border-top: 2px solid #568c1c;
+    }
+    .search-box {
+      position: relative;
+      width: 100%;
+    }
+    .search-box i {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #8ef73c;
+      font-size: 13px;
+    }
+    .search-box input {
+      width: 100%;
+      padding: 10px 12px 10px 35px;
+      background: #1c1e24;
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-box input:focus {
+      border-color: #568c1c;
+    }
+
     /* Modal */
     #marker-modal {
       display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -103,7 +142,7 @@
     }
     .modal-content textarea { resize: vertical; height: 50px; }
 
-    /* Grid Selector de Blips / Iconos (Ampliado a 8 columnas) */
+    /* Grid Selector de Blips / Iconos */
     .icon-selector {
       display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px;
       max-height: 220px; overflow-y: auto; padding: 10px; background: #141518;
@@ -180,17 +219,23 @@
           <span class="live-dot"></span> 1 ONLINE
         </span>
       </div>
+
+      <!-- Lista de Puntos -->
       <div class="sidebar-list" id="sidebar-list">
         <p style="padding: 15px; color: #777; font-size: 13px; text-align: center;">Cargando puntos...</p>
       </div>
-      <div style="padding: 10px 10px 5px 10px;">
-        <input 
-          type="text" 
-          id="search-input" 
-          placeholder="🔍 Buscar punto..." 
-          oninput="renderizarMenuGTA()"
-          style="width: 100%; padding: 8px 12px; background: #24262d; border: 1px solid #333; border-radius: 4px; color: white; font-size: 13px; outline: none;"
-        >
+
+      <!-- 🔍 FOOTER CON BUSCADOR -->
+      <div class="sidebar-footer">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input 
+            type="text" 
+            id="search-input" 
+            placeholder="Buscar punto..." 
+            oninput="renderizarMenuGTA()"
+          >
+        </div>
       </div>
     </div>
 
@@ -211,15 +256,11 @@
     let editingMarkerId = null;
     let selectedIcon = "fa-location-dot";
 
-    // LISTADO COMPLETO DE 64 BLIPS Y SÍMBOLOS PARA GTA V ROLEPLAY
     const BLIPS = [
-      // BÁSICOS Y UBICACIÓN
       { id: 'fa-location-dot', name: 'Punto Estándar' },
       { id: 'fa-map-pin', name: 'Pin de Mapa' },
       { id: 'fa-compass', name: 'Brújula / Orientación' },
       { id: 'fa-flag', name: 'Bandera / Meta' },
-
-      // SEGURIDAD / POLICÍA / EMERGENCIA
       { id: 'fa-shield-halved', name: 'Comisaría / LSPD' },
       { id: 'fa-user-shield', name: 'Agente / Agente Especial' },
       { id: 'fa-kit-medical', name: 'Hospital / EMS' },
@@ -227,8 +268,6 @@
       { id: 'fa-truck-medical', name: 'Ambulancia' },
       { id: 'fa-fire-extinguisher', name: 'Bomberos / Fuego' },
       { id: 'fa-handcuffs', name: 'Prisión / Arresto' },
-
-      // CRIMEN / ILEGAL / BANDAS
       { id: 'fa-gun', name: 'Armería / Ammu-Nation' },
       { id: 'fa-cannabis', name: 'Drogas / Plantación' },
       { id: 'fa-pills', name: 'Químicos / Fármacos' },
@@ -236,16 +275,12 @@
       { id: 'fa-skull', name: 'Zona Peligrosa / Muerte' },
       { id: 'fa-user-ninja', name: 'Mafia / Contacto Ilegal' },
       { id: 'fa-crosshairs', name: 'Zona de Tiro / Enfrascamiento' },
-
-      // BANCOS / ROBO / DINERO
       { id: 'fa-building-columns', name: 'Banco Central / Gobierno' },
       { id: 'fa-sack-dollar', name: 'Robo a Banco / Bolsa de Dinero' },
       { id: 'fa-vault', name: 'Caja Fuerte' },
       { id: 'fa-money-bill-wave', name: 'Efectivo / Lavado' },
       { id: 'fa-credit-card', name: 'Cajero / ATM' },
       { id: 'fa-gem', name: 'Joyería / Objeto de Valor' },
-
-      // VEHÍCULOS / TALLER / GARAJES
       { id: 'fa-car', name: 'Garaje público' },
       { id: 'fa-car-side', name: 'Depósito de Vehículos' },
       { id: 'fa-motorcycle', name: 'Motos / Banda Motera' },
@@ -253,20 +288,14 @@
       { id: 'fa-oil-can', name: 'Aceite / Repuestos' },
       { id: 'fa-gas-pump', name: 'Gasolinera' },
       { id: 'fa-charging-station', name: 'Cargador Eléctrico' },
-
-      // TRANSPORTES AÉREOS Y MARÍTIMOS
       { id: 'fa-helicopter', name: 'Helipuerto' },
       { id: 'fa-plane', name: 'Aeropuerto / Aviones' },
       { id: 'fa-anchor', name: 'Puerto / Embarcadero' },
       { id: 'fa-ship', name: 'Barco / Yates' },
-
-      // INMUEBLES / PROPIEDADES
       { id: 'fa-house', name: 'Piso Franco / Casa' },
       { id: 'fa-building', name: 'Sede / Edificio' },
       { id: 'fa-store', name: 'Local Comercial' },
       { id: 'fa-key', name: 'Cerradura / Alquiler' },
-
-      // COMERCIOS Y SERVICIOS
       { id: 'fa-cart-shopping', name: 'Tienda 24/7' },
       { id: 'fa-shirt', name: 'Tienda de Ropa' },
       { id: 'fa-scissors', name: 'Peluquería / Barbería' },
@@ -275,16 +304,12 @@
       { id: 'fa-burger', name: 'Comida Rápida' },
       { id: 'fa-martini-glass-citrus', name: 'Bar / Club' },
       { id: 'fa-beer-mug-empty', name: 'Pub / Discoteca' },
-
-      // TRABAJOS Y LOGÍSTICA
       { id: 'fa-box', name: 'Almacén / Entrega' },
       { id: 'fa-truck-fast', name: 'Camionero / Envíos' },
       { id: 'fa-briefcase', name: 'Oficina / Trabajo Legal' },
       { id: 'fa-wheat-awn', name: 'Granja / Cultivos' },
       { id: 'fa-fish', name: 'Zona de Pesca' },
       { id: 'fa-pickaxe', name: 'Minería / Cantera' },
-
-      // OTROS Y UTILIDADES
       { id: 'fa-phone', name: 'Cabina / Teléfono' },
       { id: 'fa-camera', name: 'Fotógrafo / Radar' },
       { id: 'fa-radio', name: 'Emisora / Frecuencia' },
@@ -342,13 +367,10 @@
       sessionPass = input;
       document.getElementById('login-overlay').style.display = 'none';
       
-      // Inicializamos el mapa
       initMap();
-      
-      // Carga inicial de puntos
       cargarPuntos();
 
-      // 🔄 ACTUALIZACIÓN AUTOMÁTICA CADA 2 SEGUNDOS (2000 ms)
+      // Actualización automática cada 2 segundos
       setInterval(() => {
         cargarPuntos();
       }, 2000);
@@ -422,7 +444,7 @@
         return;
       }
 
-      // Filtrar marcadores según el texto ingresado en el buscador
+      // Filtrado por buscador
       const puntosFiltrados = rawMarkersData.filter(m => {
         const titleMatch = m.title.toLowerCase().includes(searchVal);
         const descMatch = (m.description || '').toLowerCase().includes(searchVal);
@@ -531,7 +553,6 @@
       if (!title) return alert("Ingresa un título para el punto");
 
       if (editingMarkerId) {
-        // MODO EDITAR
         const { data, error } = await supabaseClient.rpc('update_marker', {
           pass: sessionPass,
           m_id: editingMarkerId,
@@ -549,7 +570,6 @@
         }
 
       } else {
-        // MODO CREAR NUEVO
         const { data, error } = await supabaseClient.rpc('add_marker', {
           pass: sessionPass,
           m_title: title,
