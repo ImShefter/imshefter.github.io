@@ -358,8 +358,8 @@
       maxBounds: cameraBounds,             // Restringe la vista a estos límites
       maxBoundsViscosity: 0.8        // Hace que los bordes sean 100% rígidos (no rebota ni se desplaza hacia afuera)
       });
-      L.imageOverlay('https://r2.fivemanage.com/0nRQ83ThoMDRWRHINs4nh/GTAV-HD-MAP-roadmap.jpg', cameraBounds).addTo(map);
-      map.fitBounds(cameraBounds);
+      L.imageOverlay('https://r2.fivemanage.com/0nRQ83ThoMDRWRHINs4nh/GTAV-HD-MAP-roadmap.jpg', bounds).addTo(map);
+      map.fitBounds(bounds);
 
       map.on('click', onMapClick);
       generarGaleriaIconos();
