@@ -349,9 +349,9 @@
     ];
 
     function initMap() {
-      const bounds = [[0, 0], [900, 900]];
+      const bounds = [[0, 0], [1000, 1000]];
       map = L.map('map', { 
-      minZoom: 0.5, 
+      minZoom: 1, 
       maxZoom: 4, 
       crs: L.CRS.Simple,
       maxBounds: bounds,             // Restringe la vista a estos límites
