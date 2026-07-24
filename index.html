@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mapa Roleplay GTA V</title>
+  <title>Mapa Roleplay GTA V - V3</title>
   
   <!-- Leaflet CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -105,10 +105,10 @@
     .gta-menu-item {
       background: #1c1e24; margin: 4px 10px; padding: 12px 15px; border-radius: 4px;
       display: flex; justify-content: space-between; align-items: center;
-      border-left: 4px solid #568c1c; transition: all 0.2s;
+      border-left: 4px solid var(--item-color, #568c1c); transition: all 0.2s;
     }
-    .gta-menu-item:hover { background: #2a2d36; border-left-color: #8ef73c; }
-    .gta-menu-item i { width: 20px; text-align: center; color: #8ef73c; font-size: 15px; }
+    .gta-menu-item:hover { background: #2a2d36; }
+    .gta-menu-item i { width: 20px; text-align: center; color: var(--item-color, #8ef73c); font-size: 15px; }
     .gta-menu-item span { font-size: 14px; font-weight: 500; color: #eee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     .item-nav { display: flex; align-items: center; gap: 6px; background: #121317; padding: 4px 8px; border-radius: 3px; }
@@ -168,10 +168,21 @@
     }
     .modal-content textarea { resize: vertical; height: 50px; }
 
+    /* Selector de Colores en Modal */
+    .color-selector {
+      display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;
+    }
+    .color-option {
+      width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+      border: 2px solid transparent; transition: transform 0.2s, border-color 0.2s;
+    }
+    .color-option:hover { transform: scale(1.1); }
+    .color-option.selected { border-color: #ffffff; transform: scale(1.15); box-shadow: 0 0 8px rgba(255,255,255,0.8); }
+
     /* Grid Selector de Blips / Iconos */
     .icon-selector {
       display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px;
-      max-height: 220px; overflow-y: auto; padding: 10px; background: #141518;
+      max-height: 180px; overflow-y: auto; padding: 10px; background: #141518;
       border: 1px solid #2d3038; border-radius: 4px; margin-bottom: 15px;
     }
     .icon-option {
@@ -194,9 +205,14 @@
     }
 
     .gta-marker-icon {
-      background: #1a1b20; border: 2px solid #ffffff; border-radius: 50%;
-      color: #fff; text-align: center; line-height: 30px; font-size: 14px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.8);
+      background: #1a1b20; 
+      border: 2px solid var(--marker-color, #ffffff); 
+      border-radius: 50%;
+      color: var(--marker-color, #ffffff); 
+      text-align: center; 
+      line-height: 28px; 
+      font-size: 14px;
+      box-shadow: 0 0 10px var(--marker-color, rgba(0,0,0,0.8));
     }
     .leaflet-popup-content-wrapper {
       background: #1c1d22 !important; color: #fff !important; border: 1px solid #568c1c; border-radius: 6px;
@@ -230,6 +246,9 @@
       <input type="text" id="marker-title" placeholder="Título (Ej: Comisaría Central, Garaje...)">
       <textarea id="marker-desc" placeholder="Descripción breve..."></textarea>
       
+      <p style="font-size: 12px; color: #aaa; margin-bottom: 8px;">Color del Blip:</p>
+      <div class="color-selector" id="color-selector"></div>
+
       <p style="font-size: 12px; color: #aaa; margin-bottom: 8px;">Seleccionar Símbolo / Blip (64 Disponibles):</p>
       <div class="icon-selector" id="icon-selector"></div>
 
@@ -285,6 +304,18 @@
     let tempLatLng = null;
     let editingMarkerId = null;
     let selectedIcon = "fa-location-dot";
+    let selectedColor = "#8ef73c"; // Verde por defecto
+
+    const PALETTE = [
+      { name: "Verde Neón", hex: "#8ef73c" },
+      { name: "Azul LSPD", hex: "#3b82f6" },
+      { name: "Rojo EMS", hex: "#ef4444" },
+      { name: "Amarillo/Oro", hex: "#eab308" },
+      { name: "Morado Banda", hex: "#a855f7" },
+      { name: "Naranja", hex: "#f97316" },
+      { name: "Cian Táctico", hex: "#06b6d4" },
+      { name: "Blanco Puro", hex: "#ffffff" }
+    ];
 
     const BLIPS = [
       { id: 'fa-location-dot', name: 'Punto Estándar' },
@@ -354,20 +385,44 @@
 
     function initMap() {
       const bounds = [[0, 0], [1000, 1000]];
+
       map = L.map('map', { 
-      attributionControl: false,
-      minZoom: 0, 
-      maxZoom: 6, 
-      crs: L.CRS.Simple,
-      maxBounds: bounds,
-      maxBoundsViscosity: 0.8
+        attributionControl: false,
+        minZoom: 0, 
+        maxZoom: 6, 
+        crs: L.CRS.Simple,
+        maxBounds: bounds,
+        maxBoundsViscosity: 0.8
       });
       L.imageOverlay('https://r2.fivemanage.com/0nRQ83ThoMDRWRHINs4nh/GTAV-HD-MAP-roadmap.jpg', bounds).addTo(map);
       map.fitBounds(bounds);
 
       map.on('click', onMapClick);
+      generarGaleriaColores();
       generarGaleriaIconos();
       iniciarSincronizacionRealtime();
+    }
+
+    function generarGaleriaColores() {
+      const container = document.getElementById('color-selector');
+      container.innerHTML = '';
+      PALETTE.forEach((col) => {
+        const div = document.createElement('div');
+        div.className = 'color-option';
+        div.id = `col-opt-${col.hex.replace('#', '')}`;
+        div.style.backgroundColor = col.hex;
+        div.title = col.name;
+        div.onclick = () => seleccionarColor(col.hex);
+        container.appendChild(div);
+      });
+      seleccionarColor('#8ef73c');
+    }
+
+    function seleccionarColor(hex) {
+      selectedColor = hex;
+      document.querySelectorAll('.color-option').forEach(el => el.classList.remove('selected'));
+      const target = document.getElementById(`col-opt-${hex.replace('#', '')}`);
+      if (target) target.classList.add('selected');
     }
 
     function generarGaleriaIconos() {
@@ -407,7 +462,6 @@
       initMap();
       cargarPuntos();
 
-      // Actualización automática cada 2 segundos
       setInterval(() => {
         cargarPuntos();
       }, 2000);
@@ -438,8 +492,6 @@
     async function cargarPuntos() {
       const { data, error } = await supabaseClient.rpc('get_markers', { pass: sessionPass });
       if (error) return console.error(error);
-      
-      console.log("🔄 Polling: Cargando puntos...", new Date().toLocaleTimeString());
 
       rawMarkersData = data || [];
 
@@ -447,17 +499,21 @@
       mapMarkers = {};
 
       rawMarkersData.forEach(m => {
+        const color = m.color || '#8ef73c';
         const customIcon = L.divIcon({
           className: 'gta-marker-icon',
-          html: `<i class="fa-solid ${m.icon || 'fa-location-dot'}"></i>`,
+          html: `<i class="fa-solid ${m.icon || 'fa-location-dot'}" style="--marker-color: ${color}"></i>`,
           iconSize: [32, 32],
           iconAnchor: [16, 16]
         });
 
+        // Modificamos el estilo en el HTML dinámico
         const marker = L.marker([m.lat, m.lng], { icon: customIcon }).addTo(map);
+        marker.getElement()?.style.setProperty('--marker-color', color);
+
         marker.bindPopup(`
           <div style="text-align: center;">
-            <h4 style="margin-bottom: 5px; color: #568c1c; font-size: 15px;">${m.title}</h4>
+            <h4 style="margin-bottom: 5px; color: ${color}; font-size: 15px;">${m.title}</h4>
             <p style="font-size: 12px; color: #ccc;">${m.description || 'Sin descripción'}</p>
             <div class="popup-buttons">
               <button class="btn-popup-edit" onclick="abrirModalEditar('${m.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
@@ -481,7 +537,6 @@
         return;
       }
 
-      // Filtrado por buscador
       const puntosFiltrados = rawMarkersData.filter(m => {
         const titleMatch = m.title.toLowerCase().includes(searchVal);
         const descMatch = (m.description || '').toLowerCase().includes(searchVal);
@@ -510,9 +565,11 @@
 
         const currentMarker = lista[categoryIndexes[titleKey]];
         const iconKey = currentMarker.icon || 'fa-location-dot';
+        const colorKey = currentMarker.color || '#8ef73c';
 
         const itemDiv = document.createElement('div');
         itemDiv.className = 'gta-menu-item';
+        itemDiv.style.setProperty('--item-color', colorKey);
         
         itemDiv.innerHTML = `
           <div style="flex:1; display:flex; align-items:center; gap:12px; cursor:pointer; overflow:hidden;" onclick="centrarEnPunto('${currentMarker.id}')">
@@ -522,7 +579,7 @@
           ${lista.length > 1 ? `
             <div class="item-nav">
               <button onclick="navegarCarruselNombre(event, '${titleKey.replace(/'/g, "\\'")}', -1, ${lista.length})">‹</button>
-              <span>${categoryIndexes[titleKey] + 1}/${lista.length}</span>
+              <span style="color: ${colorKey}">${categoryIndexes[titleKey] + 1}/${lista.length}</span>
               <button onclick="navegarCarruselNombre(event, '${titleKey.replace(/'/g, "\\'")}', 1, ${lista.length})">›</button>
             </div>
           ` : ''}
@@ -557,6 +614,7 @@
       document.getElementById('modal-title-text').innerText = 'AGREGAR PUNTO DE INTERÉS';
       document.getElementById('marker-title').value = '';
       document.getElementById('marker-desc').value = '';
+      seleccionarColor('#8ef73c');
       seleccionarIcono('fa-location-dot');
       
       document.getElementById('marker-modal').style.display = 'flex';
@@ -572,6 +630,7 @@
       document.getElementById('modal-title-text').innerText = 'EDITAR PUNTO DE INTERÉS';
       document.getElementById('marker-title').value = m.title;
       document.getElementById('marker-desc').value = m.description || '';
+      seleccionarColor(m.color || '#8ef73c');
       seleccionarIcono(m.icon || 'fa-location-dot');
 
       document.getElementById('marker-modal').style.display = 'flex';
@@ -595,7 +654,8 @@
           m_id: editingMarkerId,
           m_title: title,
           m_desc: desc,
-          m_icon: selectedIcon
+          m_icon: selectedIcon,
+          m_color: selectedColor
         });
 
         if (error) {
@@ -613,7 +673,8 @@
           m_desc: desc,
           m_lat: tempLatLng.lat,
           m_lng: tempLatLng.lng,
-          m_icon: selectedIcon
+          m_icon: selectedIcon,
+          m_color: selectedColor
         });
 
         if (error) {
