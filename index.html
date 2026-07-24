@@ -371,6 +371,7 @@ async function autenticar() {
     async function cargarPuntos() {
       const { data, error } = await supabaseClient.rpc('get_markers', { pass: sessionPass });
       if (error) return console.error(error);
+      console.log("🔄 Polling: Cargando puntos...", new Date().toLocaleTimeString()); // <-- LINEA DEBUG, MENSAJE EN CONSOLA
 
       rawMarkersData = data || [];
 
