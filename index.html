@@ -323,7 +323,7 @@
     ];
 
     function initMap() {
-      map = L.map('map', { minZoom: .5, maxZoom: 5, crs: L.CRS.Simple });
+      map = L.map('map', { minZoom: 0, maxZoom: 6, crs: L.CRS.Simple });
       const bounds = [[0, 0], [1000, 1000]];
       L.imageOverlay('https://r2.fivemanage.com/0nRQ83ThoMDRWRHINs4nh/GTAV-HD-MAP-roadmap.jpg', bounds).addTo(map);
       map.fitBounds(bounds);
