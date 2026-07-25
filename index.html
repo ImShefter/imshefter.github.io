@@ -39,7 +39,7 @@
     /* Pantalla de Contraseña */
     #login-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.92); z-index: 9999;
+      background: rgba(0, 0, 0, 0.85); z-index: 8888;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
     }
     .login-box {
@@ -71,7 +71,7 @@
       position: absolute;
       top: 20px;
       right: 20px;
-      z-index: 1000;
+      z-index: 9999; /* Por encima del overlay para ser visible en el fondo */
       background: rgba(24, 25, 29, 0.92);
       backdrop-filter: blur(8px);
       border: 2px solid #568c1c;
@@ -417,7 +417,7 @@
     <!-- 📻 WIDGET FLOTANTE DE RADIO -->
     <div id="radio-widget">
       <div class="radio-header">
-        <span class="radio-title"><i class="fa-solid fa-radio"></i> RADIO </span>
+        <span class="radio-title"><i class="fa-solid fa-radio"></i> RADIO FANTASMA</span>
         <span class="radio-badge" id="radio-mode">DIARIA</span>
       </div>
       
@@ -454,6 +454,7 @@
     let editingMarkerId = null;
     let selectedIcon = "fa-location-dot";
     let selectedColor = "transparent";
+    let isAuthenticated = false;
 
     // LÓGICA DE RADIO FANTASMA
     const FREQ_MIN = 100.0;
@@ -480,7 +481,12 @@
       const freqEl = document.getElementById('radio-freq');
       const badgeEl = document.getElementById('radio-mode');
       
-      freqEl.textContent = getFrequency();
+      // Solo mostrar la frecuencia real si ya se autenticó
+      if (isAuthenticated) {
+        freqEl.textContent = getFrequency();
+      } else {
+        freqEl.textContent = "---.-";
+      }
 
       if (altOffset === 0) {
         badgeEl.textContent = "DIARIA";
@@ -492,6 +498,7 @@
     }
 
     document.getElementById('btn-copy-freq').addEventListener('click', () => {
+      if (!isAuthenticated) return alert("Debes ingresar la contraseña primero");
       const freqText = document.getElementById('radio-freq').textContent;
       navigator.clipboard.writeText(freqText).then(() => {
         const btn = document.getElementById('btn-copy-freq');
@@ -503,12 +510,10 @@
     });
 
     document.getElementById('btn-refresh-freq').addEventListener('click', () => {
+      if (!isAuthenticated) return alert("Debes ingresar la contraseña primero");
       altOffset++;
       updateRadioUI();
     });
-
-    // Inicializar UI de la Radio
-    updateRadioUI();
 
     const PALETTE = [
       { name: "Sin Color / Transparente", hex: "transparent" },
@@ -665,8 +670,13 @@
       }
 
       sessionPass = input;
+      isAuthenticated = true; // Marcamos como autenticado
+      
       document.getElementById('login-overlay').style.display = 'none';
       
+      // Actualizamos la radio para revelar el número verdadero
+      updateRadioUI();
+
       initMap();
       cargarPuntos();
 
