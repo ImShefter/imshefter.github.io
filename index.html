@@ -63,6 +63,111 @@
       width: 100vw; 
       height: 100vh; 
       overflow: hidden;
+      position: relative;
+    }
+
+    /* 📻 WIDGET FLOTANTE DE RADIO (Esquina Superior Derecha) */
+    #radio-widget {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      background: rgba(24, 25, 29, 0.92);
+      backdrop-filter: blur(8px);
+      border: 2px solid #568c1c;
+      border-radius: 6px;
+      padding: 12px 15px;
+      width: 220px;
+      color: #ffffff;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+      user-select: none;
+    }
+
+    .radio-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .radio-title {
+      font-size: 12px;
+      font-weight: bold;
+      color: #f0f0f0;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .radio-title i {
+      color: #8ef73c;
+    }
+
+    .radio-badge {
+      font-size: 10px;
+      font-weight: bold;
+      background: #232d18;
+      color: #8ef73c;
+      border: 1px solid #568c1c;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    .radio-badge.alt {
+      background: #3d2e14;
+      color: #eab308;
+      border-color: #eab308;
+    }
+
+    .frequency-display {
+      font-size: 26px;
+      font-weight: bold;
+      text-align: center;
+      letter-spacing: 1px;
+      color: #8ef73c;
+      margin: 6px 0 10px 0;
+      text-shadow: 0 0 8px rgba(142, 247, 60, 0.4);
+    }
+
+    .frequency-display small {
+      font-size: 13px;
+      font-weight: normal;
+      color: #aaa;
+    }
+
+    .radio-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .radio-actions button {
+      flex: 1;
+      background: #24262d;
+      color: #eee;
+      border: 1px solid #333;
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+
+    .radio-actions button:hover {
+      background: #2a2d36;
+      border-color: #568c1c;
+      color: #8ef73c;
+    }
+
+    .radio-actions button:active {
+      transform: scale(0.96);
     }
 
     /* Menú Lateral */
@@ -309,6 +414,29 @@
       </div>
     </div>
 
+    <!-- 📻 WIDGET FLOTANTE DE RADIO -->
+    <div id="radio-widget">
+      <div class="radio-header">
+        <span class="radio-title"><i class="fa-solid fa-radio"></i> RADIO FANTASMA</span>
+        <span class="radio-badge" id="radio-mode">DIARIA</span>
+      </div>
+      
+      <div class="radio-body">
+        <div class="frequency-display">
+          <span id="radio-freq">---.-</span> <small>MHz</small>
+        </div>
+        
+        <div class="radio-actions">
+          <button id="btn-copy-freq" title="Copiar al portapapeles">
+            <i class="fa-solid fa-copy"></i> Copiar
+          </button>
+          <button id="btn-refresh-freq" title="Generar frecuencia de respaldo">
+            <i class="fa-solid fa-rotate"></i> Cambiar
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div id="map"></div>
   </div>
 
@@ -325,7 +453,62 @@
     let tempLatLng = null;
     let editingMarkerId = null;
     let selectedIcon = "fa-location-dot";
-    let selectedColor = "transparent"; // 👈 Transparente por defecto
+    let selectedColor = "transparent";
+
+    // LÓGICA DE RADIO FANTASMA
+    const FREQ_MIN = 100.0;
+    const FREQ_MAX = 300.0;
+    let altOffset = 0;
+
+    function seededRandom(seedStr) {
+      let hash = 0;
+      for (let i = 0; i < seedStr.length; i++) {
+        hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const x = Math.sin(hash) * 10000;
+      return x - Math.floor(x);
+    }
+
+    function getFrequency() {
+      const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const seed = todayStr + "-radio-" + altOffset;
+      const randomVal = seededRandom(seed);
+      return (FREQ_MIN + randomVal * (FREQ_MAX - FREQ_MIN)).toFixed(1);
+    }
+
+    function updateRadioUI() {
+      const freqEl = document.getElementById('radio-freq');
+      const badgeEl = document.getElementById('radio-mode');
+      
+      freqEl.textContent = getFrequency();
+
+      if (altOffset === 0) {
+        badgeEl.textContent = "DIARIA";
+        badgeEl.classList.remove('alt');
+      } else {
+        badgeEl.textContent = "ALT #" + altOffset;
+        badgeEl.classList.add('alt');
+      }
+    }
+
+    document.getElementById('btn-copy-freq').addEventListener('click', () => {
+      const freqText = document.getElementById('radio-freq').textContent;
+      navigator.clipboard.writeText(freqText).then(() => {
+        const btn = document.getElementById('btn-copy-freq');
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> Copiado`;
+        setTimeout(() => {
+          btn.innerHTML = `<i class="fa-solid fa-copy"></i> Copiar`;
+        }, 1500);
+      });
+    });
+
+    document.getElementById('btn-refresh-freq').addEventListener('click', () => {
+      altOffset++;
+      updateRadioUI();
+    });
+
+    // Inicializar UI de la Radio
+    updateRadioUI();
 
     const PALETTE = [
       { name: "Sin Color / Transparente", hex: "transparent" },
