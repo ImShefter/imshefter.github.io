@@ -613,14 +613,17 @@
       { id: 'plan-1', name: 'Atraco Principal #1', drawings: [], isSaved: true }
     ];
     let selectedPlanId = 'plan-1';
+    let activePlanId = 'plan-1'; // Alias para sincronizar con la función remota
     let editingPlanId = null;
+
+    // Canal en tiempo real para Broadcasts
+    let realtimeChannel = null;
 
     // LÓGICA DE RADIO
     const FREQ_MIN = 100.0;
     const FREQ_MAX = 300.0;
     let altOffset = parseInt(localStorage.getItem('radio_alt_offset')) || 0;
     let isConfirmingRadio = false;
-    let radioChannel = null;
 
     const USER_PALETTE = [
       '#ef4444', '#3b82f6', '#10b981', '#f59e0b', 
@@ -700,8 +703,8 @@
         localStorage.setItem('radio_alt_offset', altOffset);
         isConfirmingRadio = false;
 
-        if (radioChannel) {
-          radioChannel.send({
+        if (realtimeChannel) {
+          realtimeChannel.send({
             type: 'broadcast',
             event: 'radio-changed',
             payload: { altOffset: altOffset }
@@ -725,6 +728,25 @@
       updateRadioUI();
     });
 
+    // 🔄 DIBUJAR TRAZO REMOTO (VÍA BROADCAST)
+    function dibujarTrazoRemoto(data) {
+      // Asegurarnos de renderizar solo si corresponde al plan táctico activo
+      if (data.planId !== selectedPlanId) return;
+
+      // Reconstruir la capa geográfica usando Leaflet
+      const layer = L.geoJSON(data.geojson, {
+        style: function () {
+          return data.options;
+        },
+        pointToLayer: function (feature, latlng) {
+          return L.circleMarker(latlng, data.options);
+        }
+      });
+      
+      bindLayerEraser(layer);
+      layer.addTo(drawnItems);
+    }
+
     // 🔄 CONMUTADOR DE VISTAS (PUNTOS vs PLANEACIONES)
     async function cambiarVista(modo) {
       if (currentMode === 'planeacion' && modo === 'puntos') {
@@ -733,12 +755,12 @@
           const confirmar = confirm("Hay planeaciones o cambios sin guardar. Si sales, las planeaciones no guardadas se eliminarán. ¿Deseas continuar?");
           if (!confirmar) return;
 
-          // Eliminar planeaciones no guardadas
           planeacionesList = planeacionesList.filter(p => p.isSaved !== false);
           if (planeacionesList.length === 0) {
             planeacionesList = [{ id: 'plan-' + Date.now(), name: 'Nueva Planeación', drawings: [], isSaved: false }];
           }
           selectedPlanId = planeacionesList[0].id;
+          activePlanId = selectedPlanId;
           hasUnsavedChanges = false;
         }
       }
@@ -823,6 +845,7 @@
 
     function seleccionarPlaneacion(id) {
       selectedPlanId = id;
+      activePlanId = id;
       renderizarMenuPlaneaciones();
       
       drawnItems.clearLayers();
@@ -852,7 +875,6 @@
       }
     }
 
-    // Crea una pestaña en blanco inmediatamente
     function abrirModalCrearPlaneacion() {
       drawnItems.clearLayers();
 
@@ -866,6 +888,7 @@
 
       planeacionesList.push(newPlan);
       selectedPlanId = newId;
+      activePlanId = newId;
 
       renderizarMenuPlaneaciones();
     }
@@ -882,7 +905,6 @@
       setTimeout(() => document.getElementById('plan-name-input').focus(), 100);
     }
 
-    // Solicita nombrar la planeación al presionar Guardar
     function abrirModalGuardarPlaneacion() {
       const currentPlan = planeacionesList.find(p => p.id === selectedPlanId);
       editingPlanId = selectedPlanId;
@@ -928,6 +950,7 @@
           planeacionesList = [{ id: newId, name: 'Nueva Planeación', drawings: [], isSaved: false }];
           selectedPlanId = newId;
         }
+        activePlanId = selectedPlanId;
       }
       renderizarMenuPlaneaciones();
       seleccionarPlaneacion(selectedPlanId);
@@ -1026,6 +1049,20 @@
         });
         bindLayerEraser(marker);
         drawnItems.addLayer(marker);
+
+        // Transmitir en tiempo real
+        if (realtimeChannel) {
+          realtimeChannel.send({
+            type: 'broadcast',
+            event: 'live_draw',
+            payload: {
+              geojson: marker.toGeoJSON(),
+              options: { color: userTacticalColor },
+              planId: selectedPlanId
+            }
+          });
+        }
+
         actualizarDibujosMemoria();
       }
       cerrarModalTexto();
@@ -1086,8 +1123,8 @@
 
       if (error) {
         console.error("Error al guardar planeación:", error);
-      } else if (radioChannel) {
-        radioChannel.send({
+      } else if (realtimeChannel) {
+        realtimeChannel.send({
           type: 'broadcast',
           event: 'plans-updated',
           payload: { plans: plansToSave }
@@ -1108,6 +1145,7 @@
 
             if (!planeacionesList.some(p => p.id === selectedPlanId)) {
               selectedPlanId = planeacionesList[0].id;
+              activePlanId = selectedPlanId;
             }
           }
         } catch (e) {
@@ -1210,6 +1248,35 @@
       L.imageOverlay('https://r2.fivemanage.com/0nRQ83ThoMDRWRHINs4nh/GTAV-HD-MAP-roadmap.jpg', bounds).addTo(map);
       map.fitBounds(bounds);
 
+      // EVENTO AL CREAR DIBUJO CON LEAFLET
+      if (L.Draw && L.Draw.Event) {
+        map.on(L.Draw.Event.CREATED, function (e) {
+          const layer = e.layer;
+          drawnItems.addLayer(layer);
+
+          const geojson = layer.toGeoJSON();
+          const options = {
+            color: userTacticalColor || '#ff0000',
+            weight: getDynamicWeight()
+          };
+
+          if (realtimeChannel) {
+            realtimeChannel.send({
+              type: 'broadcast',
+              event: 'live_draw',
+              payload: {
+                geojson: geojson,
+                options: options,
+                planId: selectedPlanId
+              }
+            });
+          }
+
+          bindLayerEraser(layer);
+          actualizarDibujosMemoria();
+        });
+      }
+
       // Eventos de ratón para MODO PLANEACIÓN / PAINT
       map.on('mousedown', function(e) {
         if (currentMode !== 'planeacion') return;
@@ -1234,6 +1301,20 @@
         if (currentMode === 'planeacion' && isDrawing && currentPolyline) {
           if (e.originalEvent.ctrlKey) {
             isDrawing = false;
+            
+            // Transmitir finalización del trazo por Broadcast
+            if (realtimeChannel && currentPolyline) {
+              realtimeChannel.send({
+                type: 'broadcast',
+                event: 'live_draw',
+                payload: {
+                  geojson: currentPolyline.toGeoJSON(),
+                  options: { color: userTacticalColor, weight: getDynamicWeight() },
+                  planId: selectedPlanId
+                }
+              });
+            }
+
             currentPolyline = null;
             actualizarDibujosMemoria();
             return;
@@ -1245,6 +1326,20 @@
       map.on('mouseup', function() {
         if (currentMode === 'planeacion' && isDrawing) {
           isDrawing = false;
+
+          // Transmitir finalización del trazo libre por Broadcast
+          if (realtimeChannel && currentPolyline) {
+            realtimeChannel.send({
+              type: 'broadcast',
+              event: 'live_draw',
+              payload: {
+                geojson: currentPolyline.toGeoJSON(),
+                options: { color: userTacticalColor, weight: getDynamicWeight() },
+                planId: selectedPlanId
+              }
+            });
+          }
+
           currentPolyline = null;
           actualizarDibujosMemoria();
         }
@@ -1342,41 +1437,45 @@
       }, 2000);
     }
 
+    // SINCRONIZACIÓN Y EVENTOS EN TIEMPO REAL CON SUPABASE
     function iniciarSincronizacionRealtime() {
-      radioChannel = supabaseClient.channel('map-room', {
-        config: { presence: { key: 'user-' + Math.random().toString(36).substr(2, 5) } }
-      });
-
-      radioChannel.on('broadcast', { event: 'radio-changed' }, (payload) => {
+      realtimeChannel = supabaseClient.channel('realtime_roleplay', {
+        config: { 
+          broadcast: { self: false },
+          presence: { key: 'user-' + Math.random().toString(36).substr(2, 5) } 
+        }
+      })
+      .on('broadcast', { event: 'live_draw' }, (payload) => {
+        // Cuando otro usuario realiza un trazo, lo dibujamos temporalmente en nuestro mapa
+        dibujarTrazoRemoto(payload.payload);
+      })
+      .on('broadcast', { event: 'radio-changed' }, (payload) => {
         if (payload.payload && typeof payload.payload.altOffset === 'number') {
           altOffset = payload.payload.altOffset;
           localStorage.setItem('radio_alt_offset', altOffset);
           isConfirmingRadio = false;
           updateRadioUI();
         }
-      });
-
-      radioChannel.on('broadcast', { event: 'plans-updated' }, (payload) => {
+      })
+      .on('broadcast', { event: 'plans-updated' }, (payload) => {
         if (currentMode === 'planeacion' && payload.payload?.plans) {
           planeacionesList = payload.payload.plans;
           renderizarMenuPlaneaciones();
           cargarPlaneacionesRealtime();
         }
-      });
-
-      radioChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'markers' }, () => {
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'markers' }, () => {
         if (currentMode === 'puntos') cargarPuntos();
-      });
-
-      radioChannel.on('presence', { event: 'sync' }, () => {
-        const state = radioChannel.presenceState();
+      })
+      .on('presence', { event: 'sync' }, () => {
+        const state = realtimeChannel.presenceState();
         currentOnlineCount = Object.keys(state).length;
         updateOnlineCounterUI();
       });
 
-      radioChannel.subscribe(async (status) => {
+      realtimeChannel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          await radioChannel.track({ online_at: new Date().toISOString() });
+          await realtimeChannel.track({ online_at: new Date().toISOString() });
         }
       });
     }
