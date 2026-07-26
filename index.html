@@ -887,6 +887,25 @@
       }
     }
 
+    function getDynamicWeight() {
+      const currentZoom = map ? map.getZoom() : 2;
+      const baseZoom = 2;
+      const baseWeight = 3;
+      return Math.max(2, baseWeight * Math.pow(1.8, currentZoom - baseZoom));
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Control' && currentMode === 'planeacion' && currentTool === 'pencil') {
+        if (map) map.dragging.enable();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'Control' && currentMode === 'planeacion' && currentTool === 'pencil') {
+        if (map) map.dragging.disable();
+      }
+    });
+
     function setTacticalTool(tool) {
       currentTool = tool;
       document.querySelectorAll('.tool-btn').forEach(btn => {
@@ -1021,7 +1040,7 @@
           if (item.type === 'polyline') {
             const polyline = L.polyline(item.latlngs, {
               color: item.color || '#ef4444',
-              weight: 4,
+              weight: getDynamicWeight(),
               opacity: 0.8
             });
             bindLayerEraser(polyline);
@@ -1137,11 +1156,13 @@
       map.on('mousedown', function(e) {
         if (currentMode !== 'planeacion') return;
 
+        if (e.originalEvent.ctrlKey) return;
+
         if (currentTool === 'pencil') {
           isDrawing = true;
           currentPolyline = L.polyline([e.latlng], {
             color: userTacticalColor,
-            weight: 4,
+            weight: getDynamicWeight(),
             opacity: 0.8
           });
           bindLayerEraser(currentPolyline);
@@ -1153,6 +1174,12 @@
 
       map.on('mousemove', function(e) {
         if (currentMode === 'planeacion' && isDrawing && currentPolyline) {
+          if (e.originalEvent.ctrlKey) {
+            isDrawing = false;
+            currentPolyline = null;
+            guardarTrazadosPlaneacion();
+            return;
+          }
           currentPolyline.addLatLng(e.latlng);
         }
       });
@@ -1162,6 +1189,17 @@
           isDrawing = false;
           currentPolyline = null;
           guardarTrazadosPlaneacion();
+        }
+      });
+
+      map.on('zoomend', function() {
+        if (currentMode === 'planeacion') {
+          const newWeight = getDynamicWeight();
+          drawnItems.eachLayer(layer => {
+            if (layer instanceof L.Polyline && !(layer instanceof L.Polygon)) {
+              layer.setStyle({ weight: newWeight });
+            }
+          });
         }
       });
 
