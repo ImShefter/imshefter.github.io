@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mapa Roleplay GTA V - V4 (Táctico)</title>
+  <title>Mapa Roleplay GTA V - V4 (Multi-Planeación)</title>
   
   <!-- Leaflet CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -66,7 +66,7 @@
       position: relative;
     }
 
-    /* 📻 WIDGET FLOTANTE DE RADIO (Esquina Superior Derecha) */
+    /* 📻 WIDGET FLOTANTE DE RADIO */
     #radio-widget {
       position: absolute;
       top: 20px;
@@ -163,11 +163,11 @@
 
     .radio-actions button:active { transform: scale(0.96); }
 
-    /* 🗺️ BARRA INFERIOR DE NAVEGACIÓN DE Vistas */
+    /* 🗺️ BARRA INFERIOR DE NAVEGACIÓN */
     #bottom-nav {
       position: absolute;
       bottom: 20px;
-      left: calc(50% + 160px); /* Centrado respecto al área visible del mapa */
+      left: calc(50% + 160px);
       transform: translateX(-50%);
       z-index: 1000;
       background: rgba(24, 25, 29, 0.95);
@@ -205,7 +205,7 @@
       box-shadow: 0 0 10px rgba(142, 247, 60, 0.3);
     }
 
-    /* ✏️ BARRA DE HERRAMIENTAS TÁCTICAS (Planeación) */
+    /* ✏️ BARRA DE HERRAMIENTAS TÁCTICAS */
     #tactical-toolbar {
       position: absolute;
       top: 20px;
@@ -217,7 +217,7 @@
       border: 2px solid #eab308;
       border-radius: 8px;
       padding: 8px 12px;
-      display: none; /* Se activa en modo planeación */
+      display: none;
       gap: 8px;
       box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
       align-items: center;
@@ -245,6 +245,14 @@
       border-color: #fef08a;
       font-weight: bold;
     }
+
+    .tool-btn.save-btn {
+      background: #568c1c;
+      color: #fff;
+      border-color: #8ef73c;
+      font-weight: bold;
+    }
+    .tool-btn.save-btn:hover { background: #68aa22; }
 
     .tool-btn.danger { background: #8b0000; color: #fff; border-color: #ef4444; }
     .tool-btn.danger:hover { background: #ab0000; }
@@ -298,6 +306,10 @@
       border-left: 4px solid var(--item-color, #568c1c); transition: all 0.2s;
     }
     .gta-menu-item:hover { background: #2a2d36; }
+    .gta-menu-item.selected-plan {
+      background: #2b2e1e;
+      border-left-color: #eab308;
+    }
     .gta-menu-item i { width: 20px; text-align: center; color: var(--item-color, #8ef73c); font-size: 15px; }
     .gta-menu-item span { font-size: 14px; font-weight: 500; color: #eee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -306,6 +318,7 @@
     .item-nav button:hover { color: #fff; }
     .item-nav span { font-size: 11px; color: #8ef73c; font-weight: bold; }
 
+    /* Estilos para el Footer/Acciones de la Sidebar en Planeación */
     .sidebar-footer { padding: 12px; background: #121317; border-top: 2px solid #568c1c; }
     .search-box { position: relative; width: 100%; }
     .search-box i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #8ef73c; font-size: 13px; }
@@ -315,8 +328,26 @@
     }
     .search-box input:focus { border-color: #568c1c; }
 
+    .btn-create-plan {
+      width: 100%;
+      padding: 10px;
+      background: #eab308;
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+    .btn-create-plan:hover { background: #fef08a; }
+
     /* Modales */
-    #marker-modal, #clear-confirm-modal {
+    #marker-modal, #clear-confirm-modal, #plan-modal {
       display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0, 0, 0, 0.85); z-index: 9998; align-items: center; justify-content: center;
     }
@@ -409,16 +440,28 @@
     </div>
   </div>
 
-  <!-- Modal de Confirmación: Borrar Toda la Planeación -->
+  <!-- Modal de Nombre de Planeación -->
+  <div id="plan-modal">
+    <div class="modal-content" style="max-width: 400px;">
+      <h3 id="plan-modal-title" style="color: #eab308;">NUEVA PLANEACIÓN</h3>
+      <input type="text" id="plan-name-input" placeholder="Ej: Atraco Fleeca, Huida LSPD...">
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="cerrarModalPlan()">Cancelar</button>
+        <button class="btn-save" style="background: #eab308; color: #000;" onclick="guardarNombrePlaneacion()">Guardar Planeación</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Confirmación: Borrar Toda la Planeación Actual -->
   <div id="clear-confirm-modal">
     <div class="modal-content" style="max-width: 400px; text-align: center;">
       <h3 style="color: #ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> ¿LIMPIAR PLANEACIÓN?</h3>
       <p style="font-size: 13px; color: #ccc; margin-bottom: 20px;">
-        Esta acción eliminará todos los dibujos y textos flotantes de la mesa táctica para todos los usuarios conectados.
+        Esta acción borrará todos los dibujos y textos flotantes de la mesa táctica actual.
       </p>
       <div class="modal-actions" style="justify-content: center;">
         <button class="btn-cancel" onclick="cerrarModalClear()">Cancelar</button>
-        <button class="btn-save" style="background: #8b0000;" onclick="confirmarBorrarTodaPlaneacion()">Sí, Limpiar Todo</button>
+        <button class="btn-save" style="background: #8b0000;" onclick="confirmarBorrarTodaPlaneacion()">Sí, Limpiar Dibujos</button>
       </div>
     </div>
   </div>
@@ -433,13 +476,13 @@
         </span>
       </div>
 
-      <!-- Lista de Puntos -->
+      <!-- Lista Dinámica de Sidebar (Puntos o Planeaciones) -->
       <div class="sidebar-list" id="sidebar-list">
-        <p style="padding: 15px; color: #777; font-size: 13px; text-align: center;">Cargando puntos...</p>
+        <p style="padding: 15px; color: #777; font-size: 13px; text-align: center;">Cargando datos...</p>
       </div>
 
-      <!-- 🔍 FOOTER CON BUSCADOR -->
-      <div class="sidebar-footer" id="sidebar-footer">
+      <!-- Footer Dinámico de Sidebar -->
+      <div class="sidebar-footer" id="sidebar-footer-search">
         <div class="search-box">
           <i class="fa-solid fa-magnifying-glass"></i>
           <input 
@@ -449,6 +492,12 @@
             oninput="renderizarMenuGTA()"
           >
         </div>
+      </div>
+
+      <div class="sidebar-footer" id="sidebar-footer-plan" style="display: none;">
+        <button class="btn-create-plan" onclick="abrirModalCrearPlaneacion()">
+          <i class="fa-solid fa-plus"></i> NUEVA PLANEACIÓN
+        </button>
       </div>
     </div>
 
@@ -475,7 +524,7 @@
       </div>
     </div>
 
-    <!-- ✏️ BARRA FLOTANTE DE HERRAMIENTAS TÁCTICAS (PLANEACIÓN) -->
+    <!-- ✏️ BARRA FLOTANTE DE HERRAMIENTAS TÁCTICAS -->
     <div id="tactical-toolbar">
       <button class="tool-btn active" id="tool-pencil" onclick="setTacticalTool('pencil')">
         <i class="fa-solid fa-pen"></i> Lápiz
@@ -487,12 +536,15 @@
         <i class="fa-solid fa-font"></i> Texto
       </button>
       <button class="tool-btn danger" onclick="abrirModalClear()">
-        <i class="fa-solid fa-trash-can"></i> Limpiar Todo
+        <i class="fa-solid fa-trash-can"></i> Limpiar
       </button>
       
       <div style="height: 20px; width: 1px; background: #444; margin: 0 4px;"></div>
-      
-      <span style="font-size: 11px; color: #aaa; font-weight: bold;">COLOR:</span>
+
+      <button class="tool-btn save-btn" onclick="guardarTrazadosPlaneacion()">
+        <i class="fa-solid fa-floppy-disk"></i> Guardar
+      </button>
+
       <span class="user-color-indicator" id="user-color-badge" title="Tu color asignado"></span>
     </div>
 
@@ -502,7 +554,7 @@
         <i class="fa-solid fa-map-location-dot"></i> PUNTOS
       </button>
       <button class="nav-btn" id="nav-planeacion" onclick="cambiarVista('planeacion')">
-        <i class="fa-solid fa-chess-board"></i> PLANEACIÓN #1
+        <i class="fa-solid fa-chess-board"></i> PLANEACIONES
       </button>
     </div>
 
@@ -526,10 +578,17 @@
     let isAuthenticated = false;
     let currentOnlineCount = 0;
 
-    // ESTADO DE VISTAS (V4)
+    // ESTADO DE VISTAS Y PLANEACIONES (V4)
     let currentMode = 'puntos'; // 'puntos' | 'planeacion'
     let currentTool = 'pencil'; // 'pencil' | 'eraser' | 'text'
-    let userTacticalColor = '#ef4444'; // Color aleatorio asignado por usuario
+    let userTacticalColor = '#ef4444';
+    
+    // Lista Local de Planeaciones
+    let planeacionesList = [
+      { id: 'plan-1', name: 'Atraco Principal #1', drawings: [] }
+    ];
+    let selectedPlanId = 'plan-1';
+    let editingPlanId = null;
 
     // LÓGICA DE RADIO
     const FREQ_MIN = 100.0;
@@ -538,7 +597,6 @@
     let isConfirmingRadio = false;
     let radioChannel = null;
 
-    // PALETA DE COLORES NEÓN PARA USUARIOS
     const USER_PALETTE = [
       '#ef4444', '#3b82f6', '#10b981', '#f59e0b', 
       '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'
@@ -642,51 +700,144 @@
       updateRadioUI();
     });
 
-    // 🔄 CONMUTADOR DE VISTAS (Puntos vs Planeación)
+    // 🔄 CONMUTADOR DE VISTAS (PUNTOS vs PLANEACIONES)
     function cambiarVista(modo) {
       currentMode = modo;
       const btnPuntos = document.getElementById('nav-puntos');
       const btnPlaneacion = document.getElementById('nav-planeacion');
       const tacticalBar = document.getElementById('tactical-toolbar');
       const sidebarTitle = document.getElementById('sidebar-title');
-      const sidebarList = document.getElementById('sidebar-list');
-      const sidebarFooter = document.getElementById('sidebar-footer');
+      const searchFooter = document.getElementById('sidebar-footer-search');
+      const planFooter = document.getElementById('sidebar-footer-plan');
 
       if (modo === 'puntos') {
         btnPuntos.classList.add('active');
         btnPlaneacion.classList.remove('active');
         tacticalBar.style.display = 'none';
 
-        // Mostrar marcadores del mapa
         Object.values(mapMarkers).forEach(m => m.addTo(map));
         
         sidebarTitle.innerText = "PUNTOS DE INTERÉS";
-        sidebarFooter.style.display = "block";
+        searchFooter.style.display = "block";
+        planFooter.style.display = "none";
         renderizarMenuGTA();
       } else {
         btnPlaneacion.classList.add('active');
         btnPuntos.classList.remove('active');
         tacticalBar.style.display = 'flex';
 
-        // Ocultar marcadores para dejar la mesa táctica limpia
         Object.values(mapMarkers).forEach(m => map.removeLayer(m));
 
-        sidebarTitle.innerText = "MESA TÁCTICA";
-        sidebarFooter.style.display = "none";
-        sidebarList.innerHTML = `
-          <div style="padding: 20px; text-align: center; color: #aaa; font-size: 13px;">
-            <i class="fa-solid fa-pen-ruler" style="font-size: 32px; color: #eab308; margin-bottom: 12px;"></i>
-            <p style="font-weight: bold; color: #fff; margin-bottom: 6px;">Modo Planeación Activo</p>
-            <p>Usa las herramientas superiores para realizar trazados o colocar notas flotantes en tiempo real.</p>
+        sidebarTitle.innerText = "PLANEACIONES";
+        searchFooter.style.display = "none";
+        planFooter.style.display = "block";
+        renderizarMenuPlaneaciones();
+      }
+    }
+
+    // GESTIÓN DE PLANEACIONES EN LA SIDEBAR
+    function renderizarMenuPlaneaciones() {
+      const container = document.getElementById('sidebar-list');
+      container.innerHTML = '';
+
+      if (planeacionesList.length === 0) {
+        container.innerHTML = '<p style="padding: 15px; color: #666; font-size: 13px; text-align: center;">No hay planeaciones. ¡Crea una nueva!</p>';
+        return;
+      }
+
+      planeacionesList.forEach(plan => {
+        const isSelected = plan.id === selectedPlanId;
+        const itemDiv = document.createElement('div');
+        itemDiv.className = `gta-menu-item ${isSelected ? 'selected-plan' : ''}`;
+        itemDiv.style.setProperty('--item-color', isSelected ? '#eab308' : '#666');
+
+        itemDiv.innerHTML = `
+          <div style="flex:1; display:flex; align-items:center; gap:12px; cursor:pointer; overflow:hidden;" onclick="seleccionarPlaneacion('${plan.id}')">
+            <i class="fa-solid fa-chess-board" style="color:${isSelected ? '#eab308' : '#aaa'}"></i>
+            <span>${plan.name}</span>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button onclick="abrirModalEditarPlaneacion(event, '${plan.id}')" title="Renombrar" style="background:none; border:none; color:#aaa; cursor:pointer;">
+              <i class="fa-solid fa-pen" style="font-size:12px;"></i>
+            </button>
+            ${planeacionesList.length > 1 ? `
+              <button onclick="eliminarPlaneacion(event, '${plan.id}')" title="Eliminar" style="background:none; border:none; color:#ef4444; cursor:pointer;">
+                <i class="fa-solid fa-trash" style="font-size:12px;"></i>
+              </button>
+            ` : ''}
           </div>
         `;
+
+        container.appendChild(itemDiv);
+      });
+    }
+
+    function seleccionarPlaneacion(id) {
+      selectedPlanId = id;
+      renderizarMenuPlaneaciones();
+      // Aquí se cargarán los dibujos de la planeación seleccionada en el mapa
+    }
+
+    function abrirModalCrearPlaneacion() {
+      editingPlanId = null;
+      document.getElementById('plan-modal-title').innerText = "NUEVA PLANEACIÓN";
+      document.getElementById('plan-name-input').value = "";
+      document.getElementById('plan-modal').style.display = 'flex';
+    }
+
+    function abrirModalEditarPlaneacion(e, id) {
+      e.stopPropagation();
+      editingPlanId = id;
+      const plan = planeacionesList.find(p => p.id === id);
+      if (!plan) return;
+
+      document.getElementById('plan-modal-title').innerText = "RENOMBRAR PLANEACIÓN";
+      document.getElementById('plan-name-input').value = plan.name;
+      document.getElementById('plan-modal').style.display = 'flex';
+    }
+
+    function cerrarModalPlan() {
+      document.getElementById('plan-modal').style.display = 'none';
+    }
+
+    function guardarNombrePlaneacion() {
+      const name = document.getElementById('plan-name-input').value.trim();
+      if (!name) return alert("Ingresa un nombre para la planeación");
+
+      if (editingPlanId) {
+        const plan = planeacionesList.find(p => p.id === editingPlanId);
+        if (plan) plan.name = name;
+      } else {
+        const newPlan = {
+          id: 'plan-' + Date.now(),
+          name: name,
+          drawings: []
+        };
+        planeacionesList.push(newPlan);
+        selectedPlanId = newPlan.id;
       }
+
+      cerrarModalPlan();
+      renderizarMenuPlaneaciones();
+    }
+
+    function eliminarPlaneacion(e, id) {
+      e.stopPropagation();
+      if (!confirm("¿Seguro que quieres borrar esta planeación?")) return;
+
+      planeacionesList = planeacionesList.filter(p => p.id !== id);
+      if (selectedPlanId === id && planeacionesList.length > 0) {
+        selectedPlanId = planeacionesList[0].id;
+      }
+      renderizarMenuPlaneaciones();
     }
 
     function setTacticalTool(tool) {
       currentTool = tool;
       document.querySelectorAll('.tool-btn').forEach(btn => {
-        if (!btn.classList.contains('danger')) btn.classList.remove('active');
+        if (!btn.classList.contains('danger') && !btn.classList.contains('save-btn')) {
+          btn.classList.remove('active');
+        }
       });
       document.getElementById(`tool-${tool}`).classList.add('active');
     }
@@ -700,8 +851,12 @@
     }
 
     function confirmarBorrarTodaPlaneacion() {
-      // Próximamente se conectará con el WebSocket en vivo
       cerrarModalClear();
+    }
+
+    function guardarTrazadosPlaneacion() {
+      // Función para salvar los dibujos en Supabase
+      alert(`Planeación "${planeacionesList.find(p => p.id === selectedPlanId)?.name}" guardada con éxito.`);
     }
 
     const PALETTE = [
@@ -1039,10 +1194,7 @@
     }
 
     function onMapClick(e) {
-      if (currentMode === 'planeacion') {
-        // Reservado para la Fase 2 (Dibujar / Texto)
-        return;
-      }
+      if (currentMode === 'planeacion') return;
 
       editingMarkerId = null;
       tempLatLng = e.latlng;
