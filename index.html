@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mapa Roleplay GTA V - V3 (Debug Radio)</title>
+  <title>Mapa Roleplay GTA V - V3</title>
   
   <!-- Leaflet CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -39,7 +39,7 @@
     /* Pantalla de Contraseña */
     #login-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.92); z-index: 9999;
+      background: rgba(0, 0, 0, 0.92); z-index: 9999; /* Z-Index alto para quedar por encima de todo */
       display: flex; flex-direction: column; align-items: center; justify-content: center;
     }
     .login-box {
@@ -285,6 +285,7 @@
     .color-option:hover { transform: scale(1.1); }
     .color-option.selected { border-color: #ffffff; transform: scale(1.15); box-shadow: 0 0 8px rgba(255,255,255,0.8); }
 
+    /* Estilo especial para la opción Transparente */
     .color-option[data-color="transparent"] {
       border: 1px dashed #666;
       background: rgba(255, 255, 255, 0.05);
@@ -332,6 +333,7 @@
       box-shadow: 0 0 10px var(--marker-glow, rgba(0,0,0,0.8));
     }
 
+    /* Cuando el color es transparente */
     .gta-marker-icon.is-transparent {
       border-color: #ffffff;
       color: #ffffff;
@@ -343,6 +345,7 @@
     }
     .leaflet-popup-tip { background: #1c1d22 !important; }
     
+    /* Botones dentro del Popup del Mapa */
     .popup-buttons { display: flex; gap: 6px; justify-content: center; margin-top: 10px; }
     .btn-popup-edit { background: #2b5c8f; color: #fff; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: bold; }
     .btn-popup-edit:hover { background: #3772b0; }
@@ -355,8 +358,8 @@
   <!-- Overlay de Acceso -->
   <div id="login-overlay">
     <div class="login-box">
-      <h2>ONELIFE ROLEPLAY</h2>
-      <p style="margin-bottom: 15px; font-size: 13px; color: #aaa;">Ingresa la contraseña de La Mafilia</p>
+      <h2>LOS SANTOS ROLEPLAY</h2>
+      <p style="margin-bottom: 15px; font-size: 13px; color: #aaa;">Ingresa la contraseña del servidor</p>
       <input type="password" id="pass-input" placeholder="Contraseña..." onkeypress="if(event.key==='Enter') autenticar()">
       <button onclick="autenticar()">INGRESAR AL MAPA</button>
     </div>
@@ -372,7 +375,7 @@
       <p style="font-size: 12px; color: #aaa; margin-bottom: 8px;">Color del Blip:</p>
       <div class="color-selector" id="color-selector"></div>
 
-      <p style="font-size: 12px; color: #aaa; margin-bottom: 8px;">Seleccionar Símbolo (64 Disponibles):</p>
+      <p style="font-size: 12px; color: #aaa; margin-bottom: 8px;">Seleccionar Símbolo / Blip (64 Disponibles):</p>
       <div class="icon-selector" id="icon-selector"></div>
 
       <div class="modal-actions">
@@ -392,10 +395,12 @@
         </span>
       </div>
 
+      <!-- Lista de Puntos -->
       <div class="sidebar-list" id="sidebar-list">
         <p style="padding: 15px; color: #777; font-size: 13px; text-align: center;">Cargando puntos...</p>
       </div>
 
+      <!-- 🔍 FOOTER CON BUSCADOR -->
       <div class="sidebar-footer">
         <div class="search-box">
           <i class="fa-solid fa-magnifying-glass"></i>
@@ -451,9 +456,8 @@
     let selectedColor = "transparent";
     let isAuthenticated = false;
     let currentOnlineCount = 0;
-    let radioChannel = null;
 
-    // LÓGICA DE RADIO
+    // LÓGICA DE RADIO FANTASMA
     const FREQ_MIN = 100.0;
     const FREQ_MAX = 300.0;
     let altOffset = 0;
@@ -468,7 +472,7 @@
     }
 
     function getFrequency() {
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
       const seed = todayStr + "-radio-" + altOffset;
       const randomVal = seededRandom(seed);
       return (FREQ_MIN + randomVal * (FREQ_MAX - FREQ_MIN)).toFixed(1);
@@ -514,19 +518,10 @@
       });
     });
 
-    // BOTÓN CAMBIAR RADIO (BROADCAST EN TIEMPO REAL)
-    document.getElementById('btn-refresh-freq').addEventListener('click', async () => {
+    document.getElementById('btn-refresh-freq').addEventListener('click', () => {
       if (!isAuthenticated) return alert("Debes ingresar la contraseña primero");
       altOffset++;
       updateRadioUI();
-
-      if (radioChannel) {
-        await radioChannel.send({
-          type: 'broadcast',
-          event: 'change-freq',
-          payload: { newOffset: altOffset }
-        });
-      }
     });
 
     const PALETTE = [
@@ -688,6 +683,7 @@
       
       document.getElementById('login-overlay').style.display = 'none';
       
+      // Revelar Frecuencia y Contador
       updateRadioUI();
       updateOnlineCounterUI();
 
@@ -700,36 +696,23 @@
     }
 
     function iniciarSincronizacionRealtime() {
-      radioChannel = supabaseClient.channel('map-room', {
-        config: { 
-          presence: { key: 'user-' + Math.random().toString(36).substr(2, 5) },
-          broadcast: { self: false }
-        }
+      const room = supabaseClient.channel('map-room', {
+        config: { presence: { key: 'user-' + Math.random().toString(36).substr(2, 5) } }
       });
 
-      // CAMBIO DE RADIO EN TIEMPO REAL
-      radioChannel.on('broadcast', { event: 'change-freq' }, (payload) => {
-        if (payload && payload.payload && payload.payload.newOffset !== undefined) {
-          altOffset = payload.payload.newOffset;
-          updateRadioUI();
-        }
-      });
-
-      // PUNTOS EN TIEMPO REAL
-      radioChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'markers' }, () => {
+      room.on('postgres_changes', { event: '*', schema: 'public', table: 'markers' }, () => {
         cargarPuntos();
       });
 
-      // CONTADOR DE USUARIOS
-      radioChannel.on('presence', { event: 'sync' }, () => {
-        const state = radioChannel.presenceState();
+      room.on('presence', { event: 'sync' }, () => {
+        const state = room.presenceState();
         currentOnlineCount = Object.keys(state).length;
         updateOnlineCounterUI();
       });
 
-      radioChannel.subscribe(async (status) => {
+      room.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          await radioChannel.track({ online_at: new Date().toISOString() });
+          await room.track({ online_at: new Date().toISOString() });
         }
       });
     }
