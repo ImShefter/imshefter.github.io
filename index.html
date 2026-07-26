@@ -440,501 +440,496 @@
     <div id="map"></div>
   </div>
 
-  <script>
-    const SUPABASE_URL = "https://hhcnenkiflhcixdfqcgp.supabase.co"; 
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoY25lbmtpZmxoY2l4ZGZxY2dwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3ODU5NTcsImV4cCI6MjEwMDM2MTk1N30.d05_sstrpAxb-QXwAJugDBHha70zvs5-eXB-68eDlHU";
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+ <script>
+  const SUPABASE_URL = "https://hhcnenkiflhcixdfqcgp.supabase.co"; 
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoY25lbmtpZmxoY2l4ZGZxY2dwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3ODU5NTcsImV4cCI6MjEwMDM2MTk1N30.d05_sstrpAxb-QXwAJugDBHha70zvs5-eXB-68eDlHU";
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    let sessionPass = "";
-    let map;
-    let mapMarkers = {}; 
-    let rawMarkersData = []; 
-    let categoryIndexes = {}; 
-    let tempLatLng = null;
-    let editingMarkerId = null;
-    let selectedIcon = "fa-location-dot";
-    let selectedColor = "transparent";
-    let isAuthenticated = false;
-    let currentOnlineCount = 0;
+  let sessionPass = "";
+  let map;
+  let mapMarkers = {}; 
+  let rawMarkersData = []; 
+  let categoryIndexes = {}; 
+  let tempLatLng = null;
+  let editingMarkerId = null;
+  let selectedIcon = "fa-location-dot";
+  let selectedColor = "transparent";
+  let isAuthenticated = false;
+  let currentOnlineCount = 0;
 
-    // LÓGICA DE RADIO FANTASMA
-    const FREQ_MIN = 100.0;
-    const FREQ_MAX = 300.0;
-    let altOffset = 0;
+  // LÓGICA DE RADIO
+  const FREQ_MIN = 100.0;
+  const FREQ_MAX = 300.0;
+  let altOffset = 0;
 
-    function seededRandom(seedStr) {
-      let hash = 0;
-      for (let i = 0; i < seedStr.length; i++) {
-        hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
-      }
-      const x = Math.sin(hash) * 10000;
-      return x - Math.floor(x);
+  function seededRandom(seedStr) {
+    let hash = 0;
+    for (let i = 0; i < seedStr.length; i++) {
+      hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
     }
+    const x = Math.sin(hash) * 10000;
+    return x - Math.floor(x);
+  }
 
-    function getFrequency() {
-      const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-      const seed = todayStr + "-radio-" + altOffset;
-      const randomVal = seededRandom(seed);
-      return (FREQ_MIN + randomVal * (FREQ_MAX - FREQ_MIN)).toFixed(1);
+  function getFrequency() {
+    const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const seed = todayStr + "-radio-" + altOffset;
+    const randomVal = seededRandom(seed);
+    return (FREQ_MIN + randomVal * (FREQ_MAX - FREQ_MIN)).toFixed(1);
+  }
+
+  function updateRadioUI() {
+    const freqEl = document.getElementById('radio-freq');
+    const badgeEl = document.getElementById('radio-mode');
+    
+    freqEl.textContent = isAuthenticated ? getFrequency() : "---.-";
+
+    if (altOffset === 0) {
+      badgeEl.textContent = "DIARIA";
+      badgeEl.classList.remove('alt');
+    } else {
+      badgeEl.textContent = "ALT #" + altOffset;
+      badgeEl.classList.add('alt');
     }
+  }
 
-    function updateRadioUI() {
-      const freqEl = document.getElementById('radio-freq');
-      const badgeEl = document.getElementById('radio-mode');
-      
-      if (isAuthenticated) {
-        freqEl.textContent = getFrequency();
-      } else {
-        freqEl.textContent = "---.-";
-      }
+  function updateOnlineCounterUI() {
+    const counterEl = document.getElementById('online-counter');
+    const count = isAuthenticated ? currentOnlineCount : 0;
+    counterEl.innerHTML = `<span class="live-dot"></span> ${count} ONLINE`;
+  }
 
-      if (altOffset === 0) {
-        badgeEl.textContent = "DIARIA";
-        badgeEl.classList.remove('alt');
-      } else {
-        badgeEl.textContent = "ALT #" + altOffset;
-        badgeEl.classList.add('alt');
-      }
-    }
+  document.getElementById('btn-copy-freq').addEventListener('click', () => {
+    if (!isAuthenticated) return alert("Debes ingresar la contraseña primero");
+    const freqText = document.getElementById('radio-freq').textContent;
+    navigator.clipboard.writeText(freqText).then(() => {
+      const btn = document.getElementById('btn-copy-freq');
+      btn.innerHTML = `<i class="fa-solid fa-check"></i> Copiado`;
+      setTimeout(() => {
+        btn.innerHTML = `<i class="fa-solid fa-copy"></i> Copiar`;
+      }, 1500);
+    });
+  });
 
-    function updateOnlineCounterUI() {
-      const counterEl = document.getElementById('online-counter');
-      if (isAuthenticated) {
-        counterEl.innerHTML = `<span class="live-dot"></span> ${currentOnlineCount} ONLINE`;
-      } else {
-        counterEl.innerHTML = `<span class="live-dot"></span> 0 ONLINE`;
-      }
-    }
+  document.getElementById('btn-refresh-freq').addEventListener('click', () => {
+    if (!isAuthenticated) return alert("Debes ingresar la contraseña primero");
+    altOffset++;
+    updateRadioUI();
+  });
 
-    document.getElementById('btn-copy-freq').addEventListener('click', () => {
-      if (!isAuthenticated) return alert("Debes ingresar la contraseña primero");
-      const freqText = document.getElementById('radio-freq').textContent;
-      navigator.clipboard.writeText(freqText).then(() => {
-        const btn = document.getElementById('btn-copy-freq');
-        btn.innerHTML = `<i class="fa-solid fa-check"></i> Copiado`;
-        setTimeout(() => {
-          btn.innerHTML = `<i class="fa-solid fa-copy"></i> Copiar`;
-        }, 1500);
-      });
+  const PALETTE = [
+    { name: "Sin Color / Transparente", hex: "transparent" },
+    { name: "Verde Neón", hex: "#8ef73c" },
+    { name: "Azul LSPD", hex: "#3b82f6" },
+    { name: "Rojo EMS", hex: "#ef4444" },
+    { name: "Amarillo/Oro", hex: "#eab308" },
+    { name: "Morado Banda", hex: "#a855f7" },
+    { name: "Naranja", hex: "#f97316" },
+    { name: "Cian Táctico", hex: "#06b6d4" },
+    { name: "Blanco Puro", hex: "#ffffff" }
+  ];
+
+  const BLIPS = [
+    { id: 'fa-location-dot', name: 'Punto Estándar' },
+    { id: 'fa-map-pin', name: 'Pin de Mapa' },
+    { id: 'fa-compass', name: 'Brújula / Orientación' },
+    { id: 'fa-flag', name: 'Bandera / Meta' },
+    { id: 'fa-shield-halved', name: 'Comisaría / LSPD' },
+    { id: 'fa-user-shield', name: 'Agente / Agente Especial' },
+    { id: 'fa-kit-medical', name: 'Hospital / EMS' },
+    { id: 'fa-user-nurse', name: 'Doctor / Enfermero' },
+    { id: 'fa-truck-medical', name: 'Ambulancia' },
+    { id: 'fa-fire-extinguisher', name: 'Bomberos / Fuego' },
+    { id: 'fa-handcuffs', name: 'Prisión / Arresto' },
+    { id: 'fa-gun', name: 'Armería / Ammu-Nation' },
+    { id: 'fa-cannabis', name: 'Drogas / Plantación' },
+    { id: 'fa-pills', name: 'Químicos / Fármacos' },
+    { id: 'fa-mask', name: 'Máscaras / Atraco' },
+    { id: 'fa-skull', name: 'Zona Peligrosa / Muerte' },
+    { id: 'fa-user-ninja', name: 'Mafia / Contacto Ilegal' },
+    { id: 'fa-crosshairs', name: 'Zona de Tiro / Enfrascamiento' },
+    { id: 'fa-building-columns', name: 'Banco Central / Gobierno' },
+    { id: 'fa-sack-dollar', name: 'Robo a Banco / Bolsa de Dinero' },
+    { id: 'fa-vault', name: 'Caja Fuerte' },
+    { id: 'fa-money-bill-wave', name: 'Efectivo / Lavado' },
+    { id: 'fa-credit-card', name: 'Cajero / ATM' },
+    { id: 'fa-gem', name: 'Joyería / Objeto de Valor' },
+    { id: 'fa-car', name: 'Garaje público' },
+    { id: 'fa-car-side', name: 'Depósito de Vehículos' },
+    { id: 'fa-motorcycle', name: 'Motos / Banda Motera' },
+    { id: 'fa-wrench', name: 'Taller / Mecánico' },
+    { id: 'fa-oil-can', name: 'Aceite / Repuestos' },
+    { id: 'fa-gas-pump', name: 'Gasolinera' },
+    { id: 'fa-charging-station', name: 'Cargador Eléctrico' },
+    { id: 'fa-helicopter', name: 'Helipuerto' },
+    { id: 'fa-plane', name: 'Aeropuerto / Aviones' },
+    { id: 'fa-anchor', name: 'Puerto / Embarcadero' },
+    { id: 'fa-ship', name: 'Barco / Yates' },
+    { id: 'fa-house', name: 'Piso Franco / Casa' },
+    { id: 'fa-building', name: 'Sede / Edificio' },
+    { id: 'fa-store', name: 'Local Comercial' },
+    { id: 'fa-key', name: 'Cerradura / Alquiler' },
+    { id: 'fa-cart-shopping', name: 'Tienda 24/7' },
+    { id: 'fa-shirt', name: 'Tienda de Ropa' },
+    { id: 'fa-scissors', name: 'Peluquería / Barbería' },
+    { id: 'fa-spray-can', name: 'Tatuajes / Grafiti' },
+    { id: 'fa-utensils', name: 'Restaurante / Comida' },
+    { id: 'fa-burger', name: 'Comida Rápida' },
+    { id: 'fa-martini-glass-citrus', name: 'Bar / Club' },
+    { id: 'fa-beer-mug-empty', name: 'Pub / Discoteca' },
+    { id: 'fa-box', name: 'Almacén / Entrega' },
+    { id: 'fa-truck-fast', name: 'Camionero / Envíos' },
+    { id: 'fa-briefcase', name: 'Oficina / Trabajo Legal' },
+    { id: 'fa-wheat-awn', name: 'Granja / Cultivos' },
+    { id: 'fa-fish', name: 'Zona de Pesca' },
+    { id: 'fa-pickaxe', name: 'Minería / Cantera' },
+    { id: 'fa-phone', name: 'Cabina / Teléfono' },
+    { id: 'fa-camera', name: 'Fotógrafo / Radar' },
+    { id: 'fa-radio', name: 'Emisora / Frecuencia' },
+    { id: 'fa-trophy', name: 'Carreras / Evento' },
+    { id: 'fa-dice', name: 'Casino / Apuestas' },
+    { id: 'fa-dumbbell', name: 'Gimnasio' },
+    { id: 'fa-eye', name: 'Vigilancia / CÁMARA' },
+    { id: 'fa-triangle-exclamation', name: 'Advertencia' },
+    { id: 'fa-circle-info', name: 'Punto Informativo' },
+    { id: 'fa-question', name: 'Duda / Misterio' }
+  ];
+
+  function initMap() {
+    const bounds = [[0, 0], [1000, 1000]];
+
+    map = L.map('map', { 
+      attributionControl: false,
+      minZoom: 0, 
+      maxZoom: 6, 
+      crs: L.CRS.Simple,
+      maxBounds: bounds,
+      maxBoundsViscosity: 0.8
     });
 
-    document.getElementById('btn-refresh-freq').addEventListener('click', () => {
-      if (!isAuthenticated) return alert("Debes ingresar la contraseña primero");
-      altOffset++;
-      updateRadioUI();
+    L.imageOverlay('https://r2.fivemanage.com/0nRQ83ThoMDRWRHINs4nh/GTAV-HD-MAP-roadmap.jpg', bounds).addTo(map);
+    map.fitBounds(bounds);
+
+    map.on('click', onMapClick);
+    generarGaleriaColores();
+    generarGaleriaIconos();
+    iniciarSincronizacionRealtime();
+  }
+
+  function generarGaleriaColores() {
+    const container = document.getElementById('color-selector');
+    container.innerHTML = '';
+    PALETTE.forEach((col) => {
+      const div = document.createElement('div');
+      div.className = 'color-option';
+      div.dataset.color = col.hex;
+      div.id = `col-opt-${col.hex.replace('#', '')}`;
+      if (col.hex !== 'transparent') div.style.backgroundColor = col.hex;
+      div.title = col.name;
+      div.onclick = () => seleccionarColor(col.hex);
+      container.appendChild(div);
+    });
+    seleccionarColor('transparent');
+  }
+
+  function seleccionarColor(hex) {
+    selectedColor = hex;
+    document.querySelectorAll('.color-option').forEach(el => el.classList.remove('selected'));
+    const target = document.getElementById(`col-opt-${hex.replace('#', '')}`);
+    if (target) target.classList.add('selected');
+  }
+
+  function generarGaleriaIconos() {
+    const container = document.getElementById('icon-selector');
+    container.innerHTML = '';
+    BLIPS.forEach((blip) => {
+      const div = document.createElement('div');
+      div.className = 'icon-option';
+      div.id = `icon-opt-${blip.id}`;
+      div.title = blip.name;
+      div.innerHTML = `<i class="fa-solid ${blip.id}"></i>`;
+      div.onclick = () => seleccionarIcono(blip.id);
+      container.appendChild(div);
+    });
+    seleccionarIcono('fa-location-dot');
+  }
+
+  function seleccionarIcono(iconClass) {
+    selectedIcon = iconClass;
+    document.querySelectorAll('.icon-option').forEach(el => el.classList.remove('selected'));
+    const target = document.getElementById(`icon-opt-${iconClass}`);
+    if (target) target.classList.add('selected');
+  }
+
+  async function autenticar() {
+    const input = document.getElementById('pass-input').value.trim();
+    if (!input) return alert("Ingresa una contraseña");
+
+    const { data, error } = await supabaseClient.rpc('verify_access', { pass: input });
+    if (error || !data) {
+      return alert("Contraseña incorrecta");
+    }
+
+    sessionPass = input;
+    isAuthenticated = true;
+    
+    document.getElementById('login-overlay').style.display = 'none';
+    
+    updateRadioUI();
+    updateOnlineCounterUI();
+
+    initMap();
+    await cargarPuntos();
+  }
+
+  function iniciarSincronizacionRealtime() {
+    const room = supabaseClient.channel('map-room', {
+      config: { presence: { key: 'user-' + Math.random().toString(36).substr(2, 5) } }
     });
 
-    const PALETTE = [
-      { name: "Sin Color / Transparente", hex: "transparent" },
-      { name: "Verde Neón", hex: "#8ef73c" },
-      { name: "Azul LSPD", hex: "#3b82f6" },
-      { name: "Rojo EMS", hex: "#ef4444" },
-      { name: "Amarillo/Oro", hex: "#eab308" },
-      { name: "Morado Banda", hex: "#a855f7" },
-      { name: "Naranja", hex: "#f97316" },
-      { name: "Cian Táctico", hex: "#06b6d4" },
-      { name: "Blanco Puro", hex: "#ffffff" }
-    ];
-
-    const BLIPS = [
-      { id: 'fa-location-dot', name: 'Punto Estándar' },
-      { id: 'fa-map-pin', name: 'Pin de Mapa' },
-      { id: 'fa-compass', name: 'Brújula / Orientación' },
-      { id: 'fa-flag', name: 'Bandera / Meta' },
-      { id: 'fa-shield-halved', name: 'Comisaría / LSPD' },
-      { id: 'fa-user-shield', name: 'Agente / Agente Especial' },
-      { id: 'fa-kit-medical', name: 'Hospital / EMS' },
-      { id: 'fa-user-nurse', name: 'Doctor / Enfermero' },
-      { id: 'fa-truck-medical', name: 'Ambulancia' },
-      { id: 'fa-fire-extinguisher', name: 'Bomberos / Fuego' },
-      { id: 'fa-handcuffs', name: 'Prisión / Arresto' },
-      { id: 'fa-gun', name: 'Armería / Ammu-Nation' },
-      { id: 'fa-cannabis', name: 'Drogas / Plantación' },
-      { id: 'fa-pills', name: 'Químicos / Fármacos' },
-      { id: 'fa-mask', name: 'Máscaras / Atraco' },
-      { id: 'fa-skull', name: 'Zona Peligrosa / Muerte' },
-      { id: 'fa-user-ninja', name: 'Mafia / Contacto Ilegal' },
-      { id: 'fa-crosshairs', name: 'Zona de Tiro / Enfrascamiento' },
-      { id: 'fa-building-columns', name: 'Banco Central / Gobierno' },
-      { id: 'fa-sack-dollar', name: 'Robo a Banco / Bolsa de Dinero' },
-      { id: 'fa-vault', name: 'Caja Fuerte' },
-      { id: 'fa-money-bill-wave', name: 'Efectivo / Lavado' },
-      { id: 'fa-credit-card', name: 'Cajero / ATM' },
-      { id: 'fa-gem', name: 'Joyería / Objeto de Valor' },
-      { id: 'fa-car', name: 'Garaje público' },
-      { id: 'fa-car-side', name: 'Depósito de Vehículos' },
-      { id: 'fa-motorcycle', name: 'Motos / Banda Motera' },
-      { id: 'fa-wrench', name: 'Taller / Mecánico' },
-      { id: 'fa-oil-can', name: 'Aceite / Repuestos' },
-      { id: 'fa-gas-pump', name: 'Gasolinera' },
-      { id: 'fa-charging-station', name: 'Cargador Eléctrico' },
-      { id: 'fa-helicopter', name: 'Helipuerto' },
-      { id: 'fa-plane', name: 'Aeropuerto / Aviones' },
-      { id: 'fa-anchor', name: 'Puerto / Embarcadero' },
-      { id: 'fa-ship', name: 'Barco / Yates' },
-      { id: 'fa-house', name: 'Piso Franco / Casa' },
-      { id: 'fa-building', name: 'Sede / Edificio' },
-      { id: 'fa-store', name: 'Local Comercial' },
-      { id: 'fa-key', name: 'Cerradura / Alquiler' },
-      { id: 'fa-cart-shopping', name: 'Tienda 24/7' },
-      { id: 'fa-shirt', name: 'Tienda de Ropa' },
-      { id: 'fa-scissors', name: 'Peluquería / Barbería' },
-      { id: 'fa-spray-can', name: 'Tatuajes / Grafiti' },
-      { id: 'fa-utensils', name: 'Restaurante / Comida' },
-      { id: 'fa-burger', name: 'Comida Rápida' },
-      { id: 'fa-martini-glass-citrus', name: 'Bar / Club' },
-      { id: 'fa-beer-mug-empty', name: 'Pub / Discoteca' },
-      { id: 'fa-box', name: 'Almacén / Entrega' },
-      { id: 'fa-truck-fast', name: 'Camionero / Envíos' },
-      { id: 'fa-briefcase', name: 'Oficina / Trabajo Legal' },
-      { id: 'fa-wheat-awn', name: 'Granja / Cultivos' },
-      { id: 'fa-fish', name: 'Zona de Pesca' },
-      { id: 'fa-pickaxe', name: 'Minería / Cantera' },
-      { id: 'fa-phone', name: 'Cabina / Teléfono' },
-      { id: 'fa-camera', name: 'Fotógrafo / Radar' },
-      { id: 'fa-radio', name: 'Emisora / Frecuencia' },
-      { id: 'fa-trophy', name: 'Carreras / Evento' },
-      { id: 'fa-dice', name: 'Casino / Apuestas' },
-      { id: 'fa-dumbbell', name: 'Gimnasio' },
-      { id: 'fa-eye', name: 'Vigilancia / CÁMARA' },
-      { id: 'fa-triangle-exclamation', name: 'Advertencia' },
-      { id: 'fa-circle-info', name: 'Punto Informativo' },
-      { id: 'fa-question', name: 'Duda / Misterio' }
-    ];
-
-    function initMap() {
-      const bounds = [[0, 0], [1000, 1000]];
-
-      map = L.map('map', { 
-        attributionControl: false,
-        minZoom: 0, 
-        maxZoom: 6, 
-        crs: L.CRS.Simple,
-        maxBounds: bounds,
-        maxBoundsViscosity: 0.8
-      });
-      L.imageOverlay('https://r2.fivemanage.com/0nRQ83ThoMDRWRHINs4nh/GTAV-HD-MAP-roadmap.jpg', bounds).addTo(map);
-      map.fitBounds(bounds);
-
-      map.on('click', onMapClick);
-      generarGaleriaColores();
-      generarGaleriaIconos();
-      iniciarSincronizacionRealtime();
-    }
-
-    function generarGaleriaColores() {
-      const container = document.getElementById('color-selector');
-      container.innerHTML = '';
-      PALETTE.forEach((col) => {
-        const div = document.createElement('div');
-        div.className = 'color-option';
-        div.dataset.color = col.hex;
-        div.id = `col-opt-${col.hex.replace('#', '')}`;
-        if (col.hex !== 'transparent') {
-          div.style.backgroundColor = col.hex;
-        }
-        div.title = col.name;
-        div.onclick = () => seleccionarColor(col.hex);
-        container.appendChild(div);
-      });
-      seleccionarColor('transparent');
-    }
-
-    function seleccionarColor(hex) {
-      selectedColor = hex;
-      document.querySelectorAll('.color-option').forEach(el => el.classList.remove('selected'));
-      const target = document.getElementById(`col-opt-${hex.replace('#', '')}`);
-      if (target) target.classList.add('selected');
-    }
-
-    function generarGaleriaIconos() {
-      const container = document.getElementById('icon-selector');
-      container.innerHTML = '';
-      BLIPS.forEach((blip) => {
-        const div = document.createElement('div');
-        div.className = 'icon-option';
-        div.id = `icon-opt-${blip.id}`;
-        div.title = blip.name;
-        div.innerHTML = `<i class="fa-solid ${blip.id}"></i>`;
-        div.onclick = () => seleccionarIcono(blip.id);
-        container.appendChild(div);
-      });
-      seleccionarIcono('fa-location-dot');
-    }
-
-    function seleccionarIcono(iconClass) {
-      selectedIcon = iconClass;
-      document.querySelectorAll('.icon-option').forEach(el => el.classList.remove('selected'));
-      const target = document.getElementById(`icon-opt-${iconClass}`);
-      if (target) target.classList.add('selected');
-    }
-
-    async function autenticar() {
-      const input = document.getElementById('pass-input').value.trim();
-      if (!input) return alert("Ingresa una contraseña");
-
-      const { data, error } = await supabaseClient.rpc('verify_access', { pass: input });
-      if (error || !data) {
-        return alert("Contraseña incorrecta");
-      }
-
-      sessionPass = input;
-      isAuthenticated = true;
-      
-      document.getElementById('login-overlay').style.display = 'none';
-      
-      // Revelar Frecuencia y Contador
-      updateRadioUI();
-      updateOnlineCounterUI();
-
-      initMap();
+    // Escuchar cambios en la tabla 'markers' sin necesidad de polling por intervalo
+    room.on('postgres_changes', { event: '*', schema: 'public', table: 'markers' }, () => {
       cargarPuntos();
+    });
 
-      setInterval(() => {
-        cargarPuntos();
-      }, 2000);
-    }
+    room.on('presence', { event: 'sync' }, () => {
+      const state = room.presenceState();
+      currentOnlineCount = Object.keys(state).length;
+      updateOnlineCounterUI();
+    });
 
-    function iniciarSincronizacionRealtime() {
-      const room = supabaseClient.channel('map-room', {
-        config: { presence: { key: 'user-' + Math.random().toString(36).substr(2, 5) } }
-      });
-
-      room.on('postgres_changes', { event: '*', schema: 'public', table: 'markers' }, () => {
-        cargarPuntos();
-      });
-
-      room.on('presence', { event: 'sync' }, () => {
-        const state = room.presenceState();
-        currentOnlineCount = Object.keys(state).length;
-        updateOnlineCounterUI();
-      });
-
-      room.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await room.track({ online_at: new Date().toISOString() });
-        }
-      });
-    }
-
-    async function cargarPuntos() {
-      const { data, error } = await supabaseClient.rpc('get_markers', { pass: sessionPass });
-      if (error) return console.error(error);
-
-      rawMarkersData = data || [];
-
-      Object.values(mapMarkers).forEach(m => map.removeLayer(m));
-      mapMarkers = {};
-
-      rawMarkersData.forEach(m => {
-        const color = m.color || 'transparent';
-        const isTransparent = color === 'transparent';
-        
-        const customIcon = L.divIcon({
-          className: `gta-marker-icon ${isTransparent ? 'is-transparent' : ''}`,
-          html: `<i class="fa-solid ${m.icon || 'fa-location-dot'}"></i>`,
-          iconSize: [32, 32],
-          iconAnchor: [16, 16]
-        });
-
-        const marker = L.marker([m.lat, m.lng], { icon: customIcon }).addTo(map);
-        
-        if (!isTransparent) {
-          marker.getElement()?.style.setProperty('--marker-color', color);
-          marker.getElement()?.style.setProperty('--marker-text-color', color);
-          marker.getElement()?.style.setProperty('--marker-glow', color);
-        }
-
-        const titleColor = isTransparent ? '#8ef73c' : color;
-
-        marker.bindPopup(`
-          <div style="text-align: center;">
-            <h4 style="margin-bottom: 5px; color: ${titleColor}; font-size: 15px;">${m.title}</h4>
-            <p style="font-size: 12px; color: #ccc;">${m.description || 'Sin descripción'}</p>
-            <div class="popup-buttons">
-              <button class="btn-popup-edit" onclick="abrirModalEditar('${m.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
-              <button class="btn-popup-del" onclick="borrarPunto('${m.id}')"><i class="fa-solid fa-trash"></i> Borrar</button>
-            </div>
-          </div>
-        `);
-        mapMarkers[m.id] = marker;
-      });
-
-      renderizarMenuGTA();
-    }
-
-    function renderizarMenuGTA() {
-      const container = document.getElementById('sidebar-list');
-      const searchVal = document.getElementById('search-input')?.value.toLowerCase().trim() || '';
-      container.innerHTML = '';
-
-      if (rawMarkersData.length === 0) {
-        container.innerHTML = '<p style="padding: 15px; color: #666; font-size: 13px; text-align: center;">No hay puntos en el mapa.</p>';
-        return;
+    room.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await room.track({ online_at: new Date().toISOString() });
       }
+    });
+  }
 
-      const puntosFiltrados = rawMarkersData.filter(m => {
-        const titleMatch = m.title.toLowerCase().includes(searchVal);
-        const descMatch = (m.description || '').toLowerCase().includes(searchVal);
-        return titleMatch || descMatch;
-      });
+  async function cargarPuntos() {
+    const { data, error } = await supabaseClient.rpc('get_markers', { pass: sessionPass });
+    if (error) return console.error(error);
 
-      if (puntosFiltrados.length === 0) {
-        container.innerHTML = '<p style="padding: 15px; color: #666; font-size: 13px; text-align: center;">No se encontraron resultados.</p>';
-        return;
-      }
+    rawMarkersData = data || [];
 
-      const grupos = {};
-      puntosFiltrados.forEach(m => {
-        const titleKey = m.title.trim();
-        if (!grupos[titleKey]) grupos[titleKey] = [];
-        grupos[titleKey].push(m);
-      });
+    // Limpiar marcadores antiguos del mapa
+    Object.values(mapMarkers).forEach(m => map.removeLayer(m));
+    mapMarkers = {};
 
-      const titulosOrdenados = Object.keys(grupos).sort((a, b) => a.localeCompare(b));
-
-      titulosOrdenados.forEach(titleKey => {
-        const lista = grupos[titleKey];
-        
-        if (categoryIndexes[titleKey] === undefined) categoryIndexes[titleKey] = 0;
-        if (categoryIndexes[titleKey] >= lista.length) categoryIndexes[titleKey] = 0;
-
-        const currentMarker = lista[categoryIndexes[titleKey]];
-        const iconKey = currentMarker.icon || 'fa-location-dot';
-        const colorKey = (currentMarker.color && currentMarker.color !== 'transparent') 
-          ? currentMarker.color 
-          : '#568c1c';
-
-        const itemDiv = document.createElement('div');
-        itemDiv.className = 'gta-menu-item';
-        itemDiv.style.setProperty('--item-color', colorKey);
-        
-        itemDiv.innerHTML = `
-          <div style="flex:1; display:flex; align-items:center; gap:12px; cursor:pointer; overflow:hidden;" onclick="centrarEnPunto('${currentMarker.id}')">
-            <i class="fa-solid ${iconKey}"></i>
-            <span>${titleKey}</span>
-          </div>
-          ${lista.length > 1 ? `
-            <div class="item-nav">
-              <button onclick="navegarCarruselNombre(event, '${titleKey.replace(/'/g, "\\'")}', -1, ${lista.length})">‹</button>
-              <span style="color: ${colorKey}">${categoryIndexes[titleKey] + 1}/${lista.length}</span>
-              <button onclick="navegarCarruselNombre(event, '${titleKey.replace(/'/g, "\\'")}', 1, ${lista.length})">›</button>
-            </div>
-          ` : ''}
-        `;
-
-        container.appendChild(itemDiv);
-      });
-    }
-
-    function navegarCarruselNombre(event, titleKey, delta, total) {
-      event.stopPropagation();
-      categoryIndexes[titleKey] = (categoryIndexes[titleKey] + delta + total) % total;
-      renderizarMenuGTA();
-
-      const lista = rawMarkersData.filter(m => m.title.trim() === titleKey);
-      const targetMarker = lista[categoryIndexes[titleKey]];
-      if (targetMarker) centrarEnPunto(targetMarker.id);
-    }
-
-    function centrarEnPunto(id) {
-      const marker = mapMarkers[id];
-      if (marker) {
-        map.flyTo(marker.getLatLng(), 4, { duration: 1.2 });
-        marker.openPopup();
-      }
-    }
-
-    function onMapClick(e) {
-      editingMarkerId = null;
-      tempLatLng = e.latlng;
+    rawMarkersData.forEach(m => {
+      const color = m.color || 'transparent';
+      const isTransparent = color === 'transparent';
       
-      document.getElementById('modal-title-text').innerText = 'AGREGAR PUNTO DE INTERÉS';
-      document.getElementById('marker-title').value = '';
-      document.getElementById('marker-desc').value = '';
-      seleccionarColor('transparent');
-      seleccionarIcono('fa-location-dot');
+      // Pasar las propiedades CSS directamente en el estilo del elemento
+      const customStyle = !isTransparent 
+        ? `--marker-color: ${color}; --marker-text-color: ${color}; --marker-glow: ${color};` 
+        : '';
+
+      const customIcon = L.divIcon({
+        className: `gta-marker-icon ${isTransparent ? 'is-transparent' : ''}`,
+        html: `<i class="fa-solid ${m.icon || 'fa-location-dot'}" style="${customStyle}"></i>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+
+      const marker = L.marker([m.lat, m.lng], { icon: customIcon }).addTo(map);
+
+      const titleColor = isTransparent ? '#8ef73c' : color;
+
+      marker.bindPopup(`
+        <div style="text-align: center;">
+          <h4 style="margin-bottom: 5px; color: ${titleColor}; font-size: 15px;">${m.title}</h4>
+          <p style="font-size: 12px; color: #ccc;">${m.description || 'Sin descripción'}</p>
+          <div class="popup-buttons">
+            <button class="btn-popup-edit" onclick="abrirModalEditar('${m.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
+            <button class="btn-popup-del" onclick="borrarPunto('${m.id}')"><i class="fa-solid fa-trash"></i> Borrar</button>
+          </div>
+        </div>
+      `);
+      mapMarkers[m.id] = marker;
+    });
+
+    renderizarMenuGTA();
+  }
+
+  function renderizarMenuGTA() {
+    const container = document.getElementById('sidebar-list');
+    const searchVal = document.getElementById('search-input')?.value.toLowerCase().trim() || '';
+    container.innerHTML = '';
+
+    if (rawMarkersData.length === 0) {
+      container.innerHTML = '<p style="padding: 15px; color: #666; font-size: 13px; text-align: center;">No hay puntos en el mapa.</p>';
+      return;
+    }
+
+    const puntosFiltrados = rawMarkersData.filter(m => {
+      const titleMatch = m.title.toLowerCase().includes(searchVal);
+      const descMatch = (m.description || '').toLowerCase().includes(searchVal);
+      return titleMatch || descMatch;
+    });
+
+    if (puntosFiltrados.length === 0) {
+      container.innerHTML = '<p style="padding: 15px; color: #666; font-size: 13px; text-align: center;">No se encontraron resultados.</p>';
+      return;
+    }
+
+    const grupos = {};
+    puntosFiltrados.forEach(m => {
+      const titleKey = m.title.trim();
+      if (!grupos[titleKey]) grupos[titleKey] = [];
+      grupos[titleKey].push(m);
+    });
+
+    const titulosOrdenados = Object.keys(grupos).sort((a, b) => a.localeCompare(b));
+
+    titulosOrdenados.forEach(titleKey => {
+      const lista = grupos[titleKey];
       
-      document.getElementById('marker-modal').style.display = 'flex';
-    }
-
-    function abrirModalEditar(id) {
-      const m = rawMarkersData.find(item => item.id === id);
-      if (!m) return;
-
-      editingMarkerId = id;
-      tempLatLng = null;
-
-      document.getElementById('modal-title-text').innerText = 'EDITAR PUNTO DE INTERÉS';
-      document.getElementById('marker-title').value = m.title;
-      document.getElementById('marker-desc').value = m.description || '';
-      seleccionarColor(m.color || 'transparent');
-      seleccionarIcono(m.icon || 'fa-location-dot');
-
-      document.getElementById('marker-modal').style.display = 'flex';
-    }
-
-    function cerrarModal() {
-      document.getElementById('marker-modal').style.display = 'none';
-      tempLatLng = null;
-      editingMarkerId = null;
-    }
-
-    async function guardarPunto() {
-      const title = document.getElementById('marker-title').value.trim();
-      const desc = document.getElementById('marker-desc').value.trim();
-
-      if (!title) return alert("Ingresa un título para el punto");
-
-      if (editingMarkerId) {
-        const { data, error } = await supabaseClient.rpc('update_marker', {
-          pass: sessionPass,
-          m_id: editingMarkerId,
-          m_title: title,
-          m_desc: desc,
-          m_icon: selectedIcon,
-          m_color: selectedColor
-        });
-
-        if (error) {
-          console.error("Error al actualizar:", error);
-          alert("Error al actualizar el punto: " + error.message);
-        } else {
-          cerrarModal();
-          await cargarPuntos();
-        }
-
-      } else {
-        const { data, error } = await supabaseClient.rpc('add_marker', {
-          pass: sessionPass,
-          m_title: title,
-          m_desc: desc,
-          m_lat: tempLatLng.lat,
-          m_lng: tempLatLng.lng,
-          m_icon: selectedIcon,
-          m_color: selectedColor
-        });
-
-        if (error) {
-          console.error("Error al guardar:", error);
-          alert("Error al guardar el punto: " + error.message);
-        } else {
-          cerrarModal();
-          await cargarPuntos();
-        }
+      if (categoryIndexes[titleKey] === undefined || categoryIndexes[titleKey] >= lista.length) {
+        categoryIndexes[titleKey] = 0;
       }
+
+      const currentMarker = lista[categoryIndexes[titleKey]];
+      const iconKey = currentMarker.icon || 'fa-location-dot';
+      const colorKey = (currentMarker.color && currentMarker.color !== 'transparent') 
+        ? currentMarker.color 
+        : '#568c1c';
+
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'gta-menu-item';
+      itemDiv.style.setProperty('--item-color', colorKey);
+      
+      itemDiv.innerHTML = `
+        <div style="flex:1; display:flex; align-items:center; gap:12px; cursor:pointer; overflow:hidden;" onclick="centrarEnPunto('${currentMarker.id}')">
+          <i class="fa-solid ${iconKey}"></i>
+          <span>${titleKey}</span>
+        </div>
+        ${lista.length > 1 ? `
+          <div class="item-nav">
+            <button onclick="navegarCarruselNombre(event, '${titleKey.replace(/'/g, "\\'")}', -1, ${lista.length})">‹</button>
+            <span style="color: ${colorKey}">${categoryIndexes[titleKey] + 1}/${lista.length}</span>
+            <button onclick="navegarCarruselNombre(event, '${titleKey.replace(/'/g, "\\'")}', 1, ${lista.length})">›</button>
+          </div>
+        ` : ''}
+      `;
+
+      container.appendChild(itemDiv);
+    });
+  }
+
+  function navegarCarruselNombre(event, titleKey, delta, total) {
+    event.stopPropagation();
+    categoryIndexes[titleKey] = (categoryIndexes[titleKey] + delta + total) % total;
+    renderizarMenuGTA();
+
+    const lista = rawMarkersData.filter(m => m.title.trim() === titleKey);
+    const targetMarker = lista[categoryIndexes[titleKey]];
+    if (targetMarker) centrarEnPunto(targetMarker.id);
+  }
+
+  function centrarEnPunto(id) {
+    const marker = mapMarkers[id];
+    if (marker) {
+      map.flyTo(marker.getLatLng(), 4, { duration: 1.2 });
+      marker.openPopup();
     }
+  }
 
-    async function borrarPunto(id) {
-      if (!confirm("¿Seguro que quieres borrar este punto?")) return;
+  function onMapClick(e) {
+    editingMarkerId = null;
+    tempLatLng = e.latlng;
+    
+    document.getElementById('modal-title-text').innerText = 'AGREGAR PUNTO DE INTERÉS';
+    document.getElementById('marker-title').value = '';
+    document.getElementById('marker-desc').value = '';
+    seleccionarColor('transparent');
+    seleccionarIcono('fa-location-dot');
+    
+    document.getElementById('marker-modal').style.display = 'flex';
+  }
 
-      const { error } = await supabaseClient.rpc('delete_marker', {
+  function abrirModalEditar(id) {
+    const m = rawMarkersData.find(item => item.id === id);
+    if (!m) return;
+
+    editingMarkerId = id;
+    tempLatLng = null;
+
+    document.getElementById('modal-title-text').innerText = 'EDITAR PUNTO DE INTERÉS';
+    document.getElementById('marker-title').value = m.title;
+    document.getElementById('marker-desc').value = m.description || '';
+    seleccionarColor(m.color || 'transparent');
+    seleccionarIcono(m.icon || 'fa-location-dot');
+
+    document.getElementById('marker-modal').style.display = 'flex';
+  }
+
+  function cerrarModal() {
+    document.getElementById('marker-modal').style.display = 'none';
+    tempLatLng = null;
+    editingMarkerId = null;
+  }
+
+  async function guardarPunto() {
+    const title = document.getElementById('marker-title').value.trim();
+    const desc = document.getElementById('marker-desc').value.trim();
+
+    if (!title) return alert("Ingresa un título para el punto");
+
+    if (editingMarkerId) {
+      const { error } = await supabaseClient.rpc('update_marker', {
         pass: sessionPass,
-        marker_id: id
+        m_id: editingMarkerId,
+        m_title: title,
+        m_desc: desc,
+        m_icon: selectedIcon,
+        m_color: selectedColor
       });
 
-      if (error) alert("Error al eliminar el punto");
+      if (error) {
+        console.error("Error al actualizar:", error);
+        alert("Error al actualizar el punto: " + error.message);
+      } else {
+        cerrarModal();
+        await cargarPuntos();
+      }
+
+    } else {
+      const { error } = await supabaseClient.rpc('add_marker', {
+        pass: sessionPass,
+        m_title: title,
+        m_desc: desc,
+        m_lat: tempLatLng.lat,
+        m_lng: tempLatLng.lng,
+        m_icon: selectedIcon,
+        m_color: selectedColor
+      });
+
+      if (error) {
+        console.error("Error al guardar:", error);
+        alert("Error al guardar el punto: " + error.message);
+      } else {
+        cerrarModal();
+        await cargarPuntos();
+      }
     }
-  </script>
+  }
+
+  async function borrarPunto(id) {
+    if (!confirm("¿Seguro que quieres borrar este punto?")) return;
+
+    // Se envían m_id y marker_id para asegurar compatibilidad con la función RPC
+    const { error } = await supabaseClient.rpc('delete_marker', {
+      pass: sessionPass,
+      m_id: id,
+      marker_id: id
+    });
+
+    if (error) {
+      alert("Error al eliminar el punto");
+    } else {
+      await cargarPuntos();
+    }
+  }
+</script>
 </body>
 </html>
