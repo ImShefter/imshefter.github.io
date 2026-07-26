@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mapa Roleplay GTA V - V4 (Multi-Planeación)</title>
+  <title>Mapa Roleplay GTA V - V4 (Multi-Planeación + Paint)</title>
   
   <!-- Leaflet CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- Leaflet Draw Plugin (CSS & JS para herramientas tácticas) -->
+  <!-- Leaflet Draw Plugin (CSS & JS) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 
@@ -351,7 +351,7 @@
     .btn-create-plan:hover { background: #fef08a; }
 
     /* Modales */
-    #marker-modal, #clear-confirm-modal, #plan-modal {
+    #marker-modal, #clear-confirm-modal, #plan-modal, #text-modal {
       display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0, 0, 0, 0.85); z-index: 9998; align-items: center; justify-content: center;
     }
@@ -409,7 +409,13 @@
       color: #fff;
       font-weight: bold;
       font-size: 14px;
+      white-space: nowrap;
       text-shadow: 0 0 4px #000, 0 0 8px #000;
+      cursor: pointer;
+    }
+
+    .eraser-mode, .eraser-mode * {
+      cursor: crosshair !important;
     }
 
     .leaflet-popup-content-wrapper { background: #1c1d22 !important; color: #fff !important; border: 1px solid #568c1c; border-radius: 6px; }
@@ -450,6 +456,18 @@
       <div class="modal-actions">
         <button class="btn-cancel" onclick="cerrarModal()">Cancelar</button>
         <button class="btn-save" onclick="guardarPunto()">Guardar Punto</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para Agregar Texto Táctico -->
+  <div id="text-modal">
+    <div class="modal-content" style="max-width: 400px;">
+      <h3 style="color: #eab308;">TEXTO TÁCTICO</h3>
+      <input type="text" id="tactical-text-input" placeholder="Ingresa el texto a mostrar..." onkeypress="if(event.key==='Enter') agregarTextoTactico()">
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="cerrarModalTexto()">Cancelar</button>
+        <button class="btn-save" style="background: #eab308; color: #000;" onclick="agregarTextoTactico()">Añadir</button>
       </div>
     </div>
   </div>
@@ -599,7 +617,11 @@
     
     // Capa de Dibujo y Herramientas Tácticas
     let drawnItems = new L.FeatureGroup();
-    let drawHandler = null;
+
+    // Variables de Dibujo Libre (Freehand)
+    let isDrawing = false;
+    let currentPolyline = null;
+    let pendingTextLatLng = null;
 
     let planeacionesList = [
       { id: 'plan-1', name: 'Atraco Principal #1', drawings: [] }
@@ -857,9 +879,11 @@
     }
 
     function desactivarHerramientaTacticas() {
-      if (drawHandler) {
-        drawHandler.disable();
-        drawHandler = null;
+      isDrawing = false;
+      currentPolyline = null;
+      if (map) {
+        map.dragging.enable();
+        L.DomUtil.removeClass(map.getContainer(), 'eraser-mode');
       }
     }
 
@@ -875,28 +899,49 @@
       desactivarHerramientaTacticas();
 
       if (tool === 'pencil') {
-        drawHandler = new L.Draw.Polyline(map, {
-          shapeOptions: {
-            color: userTacticalColor,
-            weight: 4,
-            opacity: 0.8
-          }
-        });
-        drawHandler.enable();
-      } else if (tool === 'text') {
-        const textVal = prompt("Ingresa el texto para la mesa táctica:");
-        if (textVal && textVal.trim()) {
-          const center = map.getCenter();
-          const marker = L.marker(center, {
-            icon: L.divIcon({
-              className: 'tactical-text-label',
-              html: `<span style="color: ${userTacticalColor}; font-weight:bold;">${textVal.trim()}</span>`,
-              iconSize: [120, 30]
-            })
-          });
-          drawnItems.addLayer(marker);
-        }
+        map.dragging.disable();
+      } else if (tool === 'eraser') {
+        L.DomUtil.addClass(map.getContainer(), 'eraser-mode');
       }
+    }
+
+    function bindLayerEraser(layer) {
+      layer.on('click', function(e) {
+        if (currentMode === 'planeacion' && currentTool === 'eraser') {
+          L.DomEvent.stopPropagation(e);
+          drawnItems.removeLayer(layer);
+          guardarTrazadosPlaneacion();
+        }
+      });
+    }
+
+    function abrirModalTexto(latlng) {
+      pendingTextLatLng = latlng;
+      document.getElementById('tactical-text-input').value = '';
+      document.getElementById('text-modal').style.display = 'flex';
+      setTimeout(() => document.getElementById('tactical-text-input').focus(), 100);
+    }
+
+    function cerrarModalTexto() {
+      document.getElementById('text-modal').style.display = 'none';
+      pendingTextLatLng = null;
+    }
+
+    function agregarTextoTactico() {
+      const textVal = document.getElementById('tactical-text-input').value.trim();
+      if (textVal && pendingTextLatLng) {
+        const marker = L.marker(pendingTextLatLng, {
+          icon: L.divIcon({
+            className: 'tactical-text-label',
+            html: `<span style="color: ${userTacticalColor}; font-weight:bold;">${textVal}</span>`,
+            iconSize: [120, 30]
+          })
+        });
+        bindLayerEraser(marker);
+        drawnItems.addLayer(marker);
+        guardarTrazadosPlaneacion();
+      }
+      cerrarModalTexto();
     }
 
     function abrirModalClear() {
@@ -979,6 +1024,7 @@
               weight: 4,
               opacity: 0.8
             });
+            bindLayerEraser(polyline);
             drawnItems.addLayer(polyline);
           } else if (item.type === 'text') {
             const marker = L.marker(item.latlng, {
@@ -988,6 +1034,7 @@
                 iconSize: [120, 30]
               })
             });
+            bindLayerEraser(marker);
             drawnItems.addLayer(marker);
           }
         });
@@ -1086,16 +1133,39 @@
       L.imageOverlay('https://r2.fivemanage.com/0nRQ83ThoMDRWRHINs4nh/GTAV-HD-MAP-roadmap.jpg', bounds).addTo(map);
       map.fitBounds(bounds);
 
-      map.on('click', onMapClick);
-      map.on(L.Draw.Event.CREATED, function (event) {
+      // Eventos de ratón para MODO PLANEACIÓN / PAINT
+      map.on('mousedown', function(e) {
         if (currentMode !== 'planeacion') return;
-        const layer = event.layer;
-        drawnItems.addLayer(layer);
-        
+
         if (currentTool === 'pencil') {
-          setTacticalTool('pencil');
+          isDrawing = true;
+          currentPolyline = L.polyline([e.latlng], {
+            color: userTacticalColor,
+            weight: 4,
+            opacity: 0.8
+          });
+          bindLayerEraser(currentPolyline);
+          drawnItems.addLayer(currentPolyline);
+        } else if (currentTool === 'text') {
+          abrirModalTexto(e.latlng);
         }
       });
+
+      map.on('mousemove', function(e) {
+        if (currentMode === 'planeacion' && isDrawing && currentPolyline) {
+          currentPolyline.addLatLng(e.latlng);
+        }
+      });
+
+      map.on('mouseup', function() {
+        if (currentMode === 'planeacion' && isDrawing) {
+          isDrawing = false;
+          currentPolyline = null;
+          guardarTrazadosPlaneacion();
+        }
+      });
+
+      map.on('click', onMapClick);
 
       generarGaleriaColores();
       generarGaleriaIconos();
