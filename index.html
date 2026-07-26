@@ -928,23 +928,6 @@
         }
       }
     }
-    function _old_setTacticalTool_disabled(tool) {
-      currentTool = tool;
-      document.querySelectorAll('.tool-btn').forEach(btn => {
-        if (!btn.classList.contains('danger') && !btn.classList.contains('save-btn')) {
-          btn.classList.remove('active');
-        }
-      });
-      document.getElementById(`tool-${tool}`)?.classList.add('active');
-
-      desactivarHerramientaTacticas();
-
-      if (tool === 'pencil') {
-        map.dragging.disable();
-      } else if (tool === 'eraser') {
-        L.DomUtil.addClass(map.getContainer(), 'eraser-mode');
-      }
-    }
 
     function bindLayerEraser(layer) {
       layer.on('click', function(e) {
