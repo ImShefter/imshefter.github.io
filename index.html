@@ -5,18 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mapa Roleplay GTA V - V4 (Multi-Planeación + Paint)</title>
   
-  <!-- Leaflet CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- Leaflet Draw Plugin (CSS & JS) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 
-  <!-- FontAwesome 6 / Iconos -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
-  <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
@@ -430,7 +426,6 @@
 </head>
 <body>
 
-  <!-- Overlay de Acceso -->
   <div id="login-overlay">
     <div class="login-box">
       <h2>LOS SANTOS ROLEPLAY</h2>
@@ -440,7 +435,6 @@
     </div>
   </div>
 
-  <!-- Modal para Agregar / Editar Punto -->
   <div id="marker-modal">
     <div class="modal-content">
       <h3 id="modal-title-text">AGREGAR PUNTO DE INTERÉS</h3>
@@ -460,7 +454,6 @@
     </div>
   </div>
 
-  <!-- Modal para Agregar Texto Táctico -->
   <div id="text-modal">
     <div class="modal-content" style="max-width: 400px;">
       <h3 style="color: #eab308;">TEXTO TÁCTICO</h3>
@@ -472,11 +465,10 @@
     </div>
   </div>
 
-  <!-- Modal de Nombre de Planeación -->
   <div id="plan-modal">
     <div class="modal-content" style="max-width: 400px;">
-      <h3 id="plan-modal-title" style="color: #eab308;">NUEVA PLANEACIÓN</h3>
-      <input type="text" id="plan-name-input" placeholder="Ej: Atraco Fleeca, Huida LSPD...">
+      <h3 id="plan-modal-title" style="color: #eab308;">GUARDAR PLANEACIÓN</h3>
+      <input type="text" id="plan-name-input" placeholder="Ej: Atraco Fleeca, Huida LSPD..." onkeypress="if(event.key==='Enter') guardarNombrePlaneacion()">
       <div class="modal-actions">
         <button class="btn-cancel" onclick="cerrarModalPlan()">Cancelar</button>
         <button class="btn-save" style="background: #eab308; color: #000;" onclick="guardarNombrePlaneacion()">Guardar Planeación</button>
@@ -484,7 +476,6 @@
     </div>
   </div>
 
-  <!-- Modal de Confirmación: Borrar Toda la Planeación Actual -->
   <div id="clear-confirm-modal">
     <div class="modal-content" style="max-width: 400px; text-align: center;">
       <h3 style="color: #ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> ¿LIMPIAR PLANEACIÓN?</h3>
@@ -498,7 +489,6 @@
     </div>
   </div>
 
-  <!-- Aplicación Principal -->
   <div id="app-container">
     <div id="gta-sidebar">
       <div class="sidebar-header">
@@ -508,12 +498,10 @@
         </span>
       </div>
 
-      <!-- Lista Dinámica de Sidebar (Puntos o Planeaciones) -->
       <div class="sidebar-list" id="sidebar-list">
         <p style="padding: 15px; color: #777; font-size: 13px; text-align: center;">Cargando datos...</p>
       </div>
 
-      <!-- Footer Dinámico de Sidebar -->
       <div class="sidebar-footer" id="sidebar-footer-search">
         <div class="search-box">
           <i class="fa-solid fa-magnifying-glass"></i>
@@ -533,7 +521,6 @@
       </div>
     </div>
 
-    <!-- 📻 WIDGET FLOTANTE DE RADIO -->
     <div id="radio-widget">
       <div class="radio-header">
         <span class="radio-title"><i class="fa-solid fa-radio"></i> RADIO </span>
@@ -556,7 +543,6 @@
       </div>
     </div>
 
-    <!-- ✏️ BARRA FLOTANTE DE HERRAMIENTAS TÁCTICAS -->
     <div id="tactical-toolbar">
       <button class="tool-btn active" id="tool-pencil" onclick="setTacticalTool('pencil')">
         <i class="fa-solid fa-pen"></i> Lápiz
@@ -573,14 +559,13 @@
       
       <div style="height: 20px; width: 1px; background: #444; margin: 0 4px;"></div>
 
-      <button class="tool-btn save-btn" onclick="guardarTrazadosPlaneacion()">
+      <button class="tool-btn save-btn" onclick="abrirModalGuardarPlaneacion()">
         <i class="fa-solid fa-floppy-disk"></i> Guardar
       </button>
 
       <span class="user-color-indicator" id="user-color-badge" title="Tu color asignado"></span>
     </div>
 
-    <!-- 🗺️ BARRA INFERIOR DE SELECCIÓN DE VISTA -->
     <div id="bottom-nav">
       <button class="nav-btn active" id="nav-puntos" onclick="cambiarVista('puntos')">
         <i class="fa-solid fa-map-location-dot"></i> PUNTOS
@@ -614,6 +599,7 @@
     let currentMode = 'puntos'; // 'puntos' | 'planeacion'
     let currentTool = 'pencil'; // 'pencil' | 'eraser' | 'text'
     let userTacticalColor = '#ef4444';
+    let hasUnsavedChanges = false;
     
     // Capa de Dibujo y Herramientas Tácticas
     let drawnItems = new L.FeatureGroup();
@@ -624,7 +610,7 @@
     let pendingTextLatLng = null;
 
     let planeacionesList = [
-      { id: 'plan-1', name: 'Atraco Principal #1', drawings: [] }
+      { id: 'plan-1', name: 'Atraco Principal #1', drawings: [], isSaved: true }
     ];
     let selectedPlanId = 'plan-1';
     let editingPlanId = null;
@@ -740,7 +726,23 @@
     });
 
     // 🔄 CONMUTADOR DE VISTAS (PUNTOS vs PLANEACIONES)
-    function cambiarVista(modo) {
+    async function cambiarVista(modo) {
+      if (currentMode === 'planeacion' && modo === 'puntos') {
+        const hasUnsavedPlans = planeacionesList.some(p => p.isSaved === false);
+        if (hasUnsavedPlans || hasUnsavedChanges) {
+          const confirmar = confirm("Hay planeaciones o cambios sin guardar. Si sales, las planeaciones no guardadas se eliminarán. ¿Deseas continuar?");
+          if (!confirmar) return;
+
+          // Eliminar planeaciones no guardadas
+          planeacionesList = planeacionesList.filter(p => p.isSaved !== false);
+          if (planeacionesList.length === 0) {
+            planeacionesList = [{ id: 'plan-' + Date.now(), name: 'Nueva Planeación', drawings: [], isSaved: false }];
+          }
+          selectedPlanId = planeacionesList[0].id;
+          hasUnsavedChanges = false;
+        }
+      }
+
       currentMode = modo;
       const btnPuntos = document.getElementById('nav-puntos');
       const btnPlaneacion = document.getElementById('nav-planeacion');
@@ -774,7 +776,7 @@
         searchFooter.style.display = "none";
         planFooter.style.display = "block";
         renderizarMenuPlaneaciones();
-        cargarPlaneacionesRealtime();
+        await cargarPlaneacionesRealtime();
         setTacticalTool('pencil');
       }
     }
@@ -795,10 +797,13 @@
         itemDiv.className = `gta-menu-item ${isSelected ? 'selected-plan' : ''}`;
         itemDiv.style.setProperty('--item-color', isSelected ? '#eab308' : '#666');
 
+        const statusDot = (plan.isSaved === false) ? '<i class="fa-solid fa-circle-dot" style="font-size: 8px; color: #ef4444;" title="Sin guardar"></i>' : '';
+
         itemDiv.innerHTML = `
-          <div style="flex:1; display:flex; align-items:center; gap:12px; cursor:pointer; overflow:hidden;" onclick="seleccionarPlaneacion('${plan.id}')">
+          <div style="flex:1; display:flex; align-items:center; gap:8px; cursor:pointer; overflow:hidden;" onclick="seleccionarPlaneacion('${plan.id}')">
             <i class="fa-solid fa-chess-board" style="color:${isSelected ? '#eab308' : '#aaa'}"></i>
             <span>${plan.name}</span>
+            ${statusDot}
           </div>
           <div style="display:flex; gap:6px;">
             <button onclick="abrirModalEditarPlaneacion(event, '${plan.id}')" title="Renombrar" style="background:none; border:none; color:#aaa; cursor:pointer;">
@@ -819,14 +824,50 @@
     function seleccionarPlaneacion(id) {
       selectedPlanId = id;
       renderizarMenuPlaneaciones();
-      cargarPlaneacionesRealtime();
+      
+      drawnItems.clearLayers();
+      const currentPlan = planeacionesList.find(p => p.id === selectedPlanId);
+      if (currentPlan && currentPlan.drawings) {
+        currentPlan.drawings.forEach(item => {
+          if (item.type === 'polyline') {
+            const polyline = L.polyline(item.latlngs, {
+              color: item.color || '#ef4444',
+              weight: getDynamicWeight(),
+              opacity: 0.8
+            });
+            bindLayerEraser(polyline);
+            drawnItems.addLayer(polyline);
+          } else if (item.type === 'text') {
+            const marker = L.marker(item.latlng, {
+              icon: L.divIcon({
+                className: 'tactical-text-label',
+                html: item.html,
+                iconSize: [120, 30]
+              })
+            });
+            bindLayerEraser(marker);
+            drawnItems.addLayer(marker);
+          }
+        });
+      }
     }
 
+    // Crea una pestaña en blanco inmediatamente
     function abrirModalCrearPlaneacion() {
-      editingPlanId = null;
-      document.getElementById('plan-modal-title').innerText = "NUEVA PLANEACIÓN";
-      document.getElementById('plan-name-input').value = "";
-      document.getElementById('plan-modal').style.display = 'flex';
+      drawnItems.clearLayers();
+
+      const newId = 'plan-' + Date.now();
+      const newPlan = {
+        id: newId,
+        name: 'Nueva Planeación',
+        drawings: [],
+        isSaved: false
+      };
+
+      planeacionesList.push(newPlan);
+      selectedPlanId = newId;
+
+      renderizarMenuPlaneaciones();
     }
 
     function abrirModalEditarPlaneacion(e, id) {
@@ -838,6 +879,18 @@
       document.getElementById('plan-modal-title').innerText = "RENOMBRAR PLANEACIÓN";
       document.getElementById('plan-name-input').value = plan.name;
       document.getElementById('plan-modal').style.display = 'flex';
+      setTimeout(() => document.getElementById('plan-name-input').focus(), 100);
+    }
+
+    // Solicita nombrar la planeación al presionar Guardar
+    function abrirModalGuardarPlaneacion() {
+      const currentPlan = planeacionesList.find(p => p.id === selectedPlanId);
+      editingPlanId = selectedPlanId;
+
+      document.getElementById('plan-modal-title').innerText = "GUARDAR PLANEACIÓN";
+      document.getElementById('plan-name-input').value = (currentPlan && currentPlan.name !== 'Nueva Planeación') ? currentPlan.name : '';
+      document.getElementById('plan-modal').style.display = 'flex';
+      setTimeout(() => document.getElementById('plan-name-input').focus(), 100);
     }
 
     function cerrarModalPlan() {
@@ -848,22 +901,18 @@
       const name = document.getElementById('plan-name-input').value.trim();
       if (!name) return alert("Ingresa un nombre para la planeación");
 
-      if (editingPlanId) {
-        const plan = planeacionesList.find(p => p.id === editingPlanId);
-        if (plan) plan.name = name;
-      } else {
-        const newPlan = {
-          id: 'plan-' + Date.now(),
-          name: name,
-          drawings: []
-        };
-        planeacionesList.push(newPlan);
-        selectedPlanId = newPlan.id;
+      const targetId = editingPlanId || selectedPlanId;
+      const plan = planeacionesList.find(p => p.id === targetId);
+      if (plan) {
+        plan.name = name;
+        plan.isSaved = true;
       }
 
       cerrarModalPlan();
       renderizarMenuPlaneaciones();
-      guardarTrazadosPlaneacion();
+      actualizarDibujosMemoria();
+      await guardarTrazadosPlaneacion();
+      hasUnsavedChanges = false;
     }
 
     function eliminarPlaneacion(e, id) {
@@ -871,20 +920,18 @@
       if (!confirm("¿Seguro que quieres borrar esta planeación?")) return;
 
       planeacionesList = planeacionesList.filter(p => p.id !== id);
-      if (selectedPlanId === id && planeacionesList.length > 0) {
-        selectedPlanId = planeacionesList[0].id;
+      if (selectedPlanId === id) {
+        if (planeacionesList.length > 0) {
+          selectedPlanId = planeacionesList[0].id;
+        } else {
+          const newId = 'plan-' + Date.now();
+          planeacionesList = [{ id: newId, name: 'Nueva Planeación', drawings: [], isSaved: false }];
+          selectedPlanId = newId;
+        }
       }
       renderizarMenuPlaneaciones();
+      seleccionarPlaneacion(selectedPlanId);
       guardarTrazadosPlaneacion();
-    }
-
-    function desactivarHerramientaTacticas() {
-      isDrawing = false;
-      currentPolyline = null;
-      if (map) {
-        map.dragging.enable();
-        L.DomUtil.removeClass(map.getContainer(), 'eraser-mode');
-      }
     }
 
     function getDynamicWeight() {
@@ -929,19 +976,28 @@
       }
     }
 
+    function desactivarHerramientaTacticas() {
+      isDrawing = false;
+      currentPolyline = null;
+      if (map) {
+        map.dragging.enable();
+        L.DomUtil.removeClass(map.getContainer(), 'eraser-mode');
+      }
+    }
+
     function bindLayerEraser(layer) {
       layer.on('click', function(e) {
         if (currentMode === 'planeacion' && currentTool === 'eraser' && !e.originalEvent.ctrlKey) {
           L.DomEvent.stopPropagation(e);
           drawnItems.removeLayer(layer);
-          guardarTrazadosPlaneacion();
+          actualizarDibujosMemoria();
         }
       });
 
       layer.on('mouseover', function(e) {
         if (currentMode === 'planeacion' && currentTool === 'eraser' && e.originalEvent.buttons === 1 && !e.originalEvent.ctrlKey) {
           drawnItems.removeLayer(layer);
-          guardarTrazadosPlaneacion();
+          actualizarDibujosMemoria();
         }
       });
     }
@@ -970,7 +1026,7 @@
         });
         bindLayerEraser(marker);
         drawnItems.addLayer(marker);
-        guardarTrazadosPlaneacion();
+        actualizarDibujosMemoria();
       }
       cerrarModalTexto();
     }
@@ -990,10 +1046,10 @@
         planeacionesList[planIndex].drawings = [];
       }
       cerrarModalClear();
-      guardarTrazadosPlaneacion();
+      actualizarDibujosMemoria();
     }
 
-    async function guardarTrazadosPlaneacion() {
+    function actualizarDibujosMemoria() {
       const drawings = [];
       drawnItems.eachLayer(layer => {
         if (layer instanceof L.Polyline) {
@@ -1015,10 +1071,17 @@
       if (planIndex !== -1) {
         planeacionesList[planIndex].drawings = drawings;
       }
+      hasUnsavedChanges = true;
+    }
+
+    async function guardarTrazadosPlaneacion() {
+      actualizarDibujosMemoria();
+
+      const plansToSave = planeacionesList.filter(p => p.isSaved !== false);
 
       const { error } = await supabaseClient.rpc('save_plans', {
         pass: sessionPass,
-        plans_data: JSON.stringify(planeacionesList)
+        plans_data: JSON.stringify(plansToSave)
       });
 
       if (error) {
@@ -1027,7 +1090,7 @@
         radioChannel.send({
           type: 'broadcast',
           event: 'plans-updated',
-          payload: { plans: planeacionesList }
+          payload: { plans: plansToSave }
         });
       }
     }
@@ -1038,7 +1101,11 @@
         try {
           const parsed = typeof data === 'string' ? JSON.parse(data) : data;
           if (Array.isArray(parsed) && parsed.length > 0) {
-            planeacionesList = parsed;
+            planeacionesList = parsed.map(p => ({
+              ...p,
+              isSaved: true
+            }));
+
             if (!planeacionesList.some(p => p.id === selectedPlanId)) {
               selectedPlanId = planeacionesList[0].id;
             }
@@ -1048,31 +1115,7 @@
         }
       }
 
-      drawnItems.clearLayers();
-      const currentPlan = planeacionesList.find(p => p.id === selectedPlanId) || planeacionesList[0];
-      if (currentPlan && currentPlan.drawings) {
-        currentPlan.drawings.forEach(item => {
-          if (item.type === 'polyline') {
-            const polyline = L.polyline(item.latlngs, {
-              color: item.color || '#ef4444',
-              weight: getDynamicWeight(),
-              opacity: 0.8
-            });
-            bindLayerEraser(polyline);
-            drawnItems.addLayer(polyline);
-          } else if (item.type === 'text') {
-            const marker = L.marker(item.latlng, {
-              icon: L.divIcon({
-                className: 'tactical-text-label',
-                html: item.html,
-                iconSize: [120, 30]
-              })
-            });
-            bindLayerEraser(marker);
-            drawnItems.addLayer(marker);
-          }
-        });
-      }
+      seleccionarPlaneacion(selectedPlanId);
     }
 
     const PALETTE = [
@@ -1192,7 +1235,7 @@
           if (e.originalEvent.ctrlKey) {
             isDrawing = false;
             currentPolyline = null;
-            guardarTrazadosPlaneacion();
+            actualizarDibujosMemoria();
             return;
           }
           currentPolyline.addLatLng(e.latlng);
@@ -1203,7 +1246,7 @@
         if (currentMode === 'planeacion' && isDrawing) {
           isDrawing = false;
           currentPolyline = null;
-          guardarTrazadosPlaneacion();
+          actualizarDibujosMemoria();
         }
       });
 
