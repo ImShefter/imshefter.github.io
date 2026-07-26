@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mapa Roleplay GTA V - V3</title>
+  <title>Mapa Roleplay GTA V - V3 (Debug Radio)</title>
   
   <!-- Leaflet CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -39,7 +39,7 @@
     /* Pantalla de Contraseña */
     #login-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.92); z-index: 9999; /* Z-Index alto para quedar por encima de todo */
+      background: rgba(0, 0, 0, 0.92); z-index: 9999;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
     }
     .login-box {
@@ -456,6 +456,7 @@
     let selectedColor = "transparent";
     let isAuthenticated = false;
     let currentOnlineCount = 0;
+    let radioChannel = null;
 
     // LÓGICA DE RADIO FANTASMA
     const FREQ_MIN = 100.0;
@@ -518,10 +519,18 @@
       });
     });
 
-    document.getElementById('btn-refresh-freq').addEventListener('click', () => {
+    document.getElementById('btn-refresh-freq').addEventListener('click', async () => {
       if (!isAuthenticated) return alert("Debes ingresar la contraseña primero");
       altOffset++;
       updateRadioUI();
+
+      // Transmitimos el nuevo offset a los demás usuarios conectados vía Realtime
+      if (radioChannel) {
+        await radioChannel.track({ 
+          online_at: new Date().toISOString(),
+          altOffset: altOffset 
+        });
+      }
     });
 
     const PALETTE = [
@@ -690,29 +699,46 @@
       initMap();
       cargarPuntos();
 
+      // 🔄 MODO DEBUG / REFRESH CADA 2 SEGUNDOS DE PUNTOS Y RADIO
       setInterval(() => {
         cargarPuntos();
+        updateRadioUI();
       }, 2000);
     }
 
     function iniciarSincronizacionRealtime() {
-      const room = supabaseClient.channel('map-room', {
+      radioChannel = supabaseClient.channel('map-room', {
         config: { presence: { key: 'user-' + Math.random().toString(36).substr(2, 5) } }
       });
 
-      room.on('postgres_changes', { event: '*', schema: 'public', table: 'markers' }, () => {
+      radioChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'markers' }, () => {
         cargarPuntos();
       });
 
-      room.on('presence', { event: 'sync' }, () => {
-        const state = room.presenceState();
+      // Synchronizar presencia e intercambiar offset de radio
+      radioChannel.on('presence', { event: 'sync' }, () => {
+        const state = radioChannel.presenceState();
         currentOnlineCount = Object.keys(state).length;
         updateOnlineCounterUI();
+
+        // Sincronizar el offset de la radio si otro usuario lo cambió
+        for (const id in state) {
+          const presences = state[id];
+          if (presences && presences[0] && presences[0].altOffset !== undefined) {
+            if (presences[0].altOffset !== altOffset) {
+              altOffset = presences[0].altOffset;
+              updateRadioUI();
+            }
+          }
+        }
       });
 
-      room.subscribe(async (status) => {
+      radioChannel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          await room.track({ online_at: new Date().toISOString() });
+          await radioChannel.track({ 
+            online_at: new Date().toISOString(),
+            altOffset: altOffset
+          });
         }
       });
     }
