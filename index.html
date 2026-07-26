@@ -706,50 +706,50 @@
   }
 
   async function cargarPuntos() {
-    const { data, error } = await supabaseClient.rpc('get_markers', { pass: sessionPass });
-    if (error) return console.error(error);
+  const { data, error } = await supabaseClient.rpc('get_markers', { pass: sessionPass });
+  if (error) return console.error(error);
 
-    rawMarkersData = data || [];
+  rawMarkersData = data || [];
 
-    // Limpiar marcadores antiguos del mapa
-    Object.values(mapMarkers).forEach(m => map.removeLayer(m));
-    mapMarkers = {};
+  // Limpiar marcadores antiguos del mapa
+  Object.values(mapMarkers).forEach(m => map.removeLayer(m));
+  mapMarkers = {};
 
-    rawMarkersData.forEach(m => {
-      const color = m.color || 'transparent';
-      const isTransparent = color === 'transparent';
-      
-      // Pasar las propiedades CSS directamente en el estilo del elemento
-      const customStyle = !isTransparent 
-        ? `--marker-color: ${color}; --marker-text-color: ${color}; --marker-glow: ${color};` 
-        : '';
+  rawMarkersData.forEach(m => {
+    const color = m.color || 'transparent';
+    const isTransparent = color === 'transparent';
+    
+    // Asignar las variables CSS para que afecten tanto al marco/borde como al icono
+    const customStyle = !isTransparent 
+      ? `--marker-color: ${color}; --marker-text-color: ${color}; --marker-glow: ${color};` 
+      : '';
 
-      const customIcon = L.divIcon({
-        className: `gta-marker-icon ${isTransparent ? 'is-transparent' : ''}`,
-        html: `<i class="fa-solid ${m.icon || 'fa-location-dot'}" style="${customStyle}"></i>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
-      });
-
-      const marker = L.marker([m.lat, m.lng], { icon: customIcon }).addTo(map);
-
-      const titleColor = isTransparent ? '#8ef73c' : color;
-
-      marker.bindPopup(`
-        <div style="text-align: center;">
-          <h4 style="margin-bottom: 5px; color: ${titleColor}; font-size: 15px;">${m.title}</h4>
-          <p style="font-size: 12px; color: #ccc;">${m.description || 'Sin descripción'}</p>
-          <div class="popup-buttons">
-            <button class="btn-popup-edit" onclick="abrirModalEditar('${m.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
-            <button class="btn-popup-del" onclick="borrarPunto('${m.id}')"><i class="fa-solid fa-trash"></i> Borrar</button>
-          </div>
-        </div>
-      `);
-      mapMarkers[m.id] = marker;
+    const customIcon = L.divIcon({
+      className: `gta-marker-icon ${isTransparent ? 'is-transparent' : ''}`,
+      html: `<div style="${customStyle} width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;"><i class="fa-solid ${m.icon || 'fa-location-dot'}"></i></div>`,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
     });
 
-    renderizarMenuGTA();
-  }
+    const marker = L.marker([m.lat, m.lng], { icon: customIcon }).addTo(map);
+
+    const titleColor = isTransparent ? '#8ef73c' : color;
+
+    marker.bindPopup(`
+      <div style="text-align: center;">
+        <h4 style="margin-bottom: 5px; color: ${titleColor}; font-size: 15px;">${m.title}</h4>
+        <p style="font-size: 12px; color: #ccc;">${m.description || 'Sin descripción'}</p>
+        <div class="popup-buttons">
+          <button class="btn-popup-edit" onclick="abrirModalEditar('${m.id}')"><i class="fa-solid fa-pen"></i> Editar</button>
+          <button class="btn-popup-del" onclick="borrarPunto('${m.id}')"><i class="fa-solid fa-trash"></i> Borrar</button>
+        </div>
+      </div>
+    `);
+    mapMarkers[m.id] = marker;
+  });
+
+  renderizarMenuGTA();
+}
 
   function renderizarMenuGTA() {
     const container = document.getElementById('sidebar-list');
