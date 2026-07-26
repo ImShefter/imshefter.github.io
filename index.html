@@ -9,6 +9,10 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+  <!-- Leaflet Draw Plugin (CSS & JS para herramientas tácticas) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
   <!-- FontAwesome 6 / Iconos -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
@@ -398,6 +402,16 @@
     }
     .gta-marker-icon.is-transparent { border-color: #ffffff; color: #ffffff; box-shadow: 0 0 8px rgba(0,0,0,0.8); }
 
+    .tactical-text-label {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      color: #fff;
+      font-weight: bold;
+      font-size: 14px;
+      text-shadow: 0 0 4px #000, 0 0 8px #000;
+    }
+
     .leaflet-popup-content-wrapper { background: #1c1d22 !important; color: #fff !important; border: 1px solid #568c1c; border-radius: 6px; }
     .leaflet-popup-tip { background: #1c1d22 !important; }
     
@@ -583,7 +597,10 @@
     let currentTool = 'pencil'; // 'pencil' | 'eraser' | 'text'
     let userTacticalColor = '#ef4444';
     
-    // Lista Local de Planeaciones
+    // Capa de Dibujo y Herramientas Tácticas
+    let drawnItems = new L.FeatureGroup();
+    let drawHandler = null;
+
     let planeacionesList = [
       { id: 'plan-1', name: 'Atraco Principal #1', drawings: [] }
     ];
@@ -715,6 +732,8 @@
         btnPlaneacion.classList.remove('active');
         tacticalBar.style.display = 'none';
 
+        desactivarHerramientaTacticas();
+        map.removeLayer(drawnItems);
         Object.values(mapMarkers).forEach(m => m.addTo(map));
         
         sidebarTitle.innerText = "PUNTOS DE INTERÉS";
@@ -727,11 +746,14 @@
         tacticalBar.style.display = 'flex';
 
         Object.values(mapMarkers).forEach(m => map.removeLayer(m));
+        map.addLayer(drawnItems);
 
         sidebarTitle.innerText = "PLANEACIONES";
         searchFooter.style.display = "none";
         planFooter.style.display = "block";
         renderizarMenuPlaneaciones();
+        cargarPlaneacionesRealtime();
+        setTacticalTool('pencil');
       }
     }
 
@@ -775,7 +797,7 @@
     function seleccionarPlaneacion(id) {
       selectedPlanId = id;
       renderizarMenuPlaneaciones();
-      // Aquí se cargarán los dibujos de la planeación seleccionada en el mapa
+      cargarPlaneacionesRealtime();
     }
 
     function abrirModalCrearPlaneacion() {
@@ -800,7 +822,7 @@
       document.getElementById('plan-modal').style.display = 'none';
     }
 
-    function guardarNombrePlaneacion() {
+    async function guardarNombrePlaneacion() {
       const name = document.getElementById('plan-name-input').value.trim();
       if (!name) return alert("Ingresa un nombre para la planeación");
 
@@ -819,6 +841,7 @@
 
       cerrarModalPlan();
       renderizarMenuPlaneaciones();
+      guardarTrazadosPlaneacion();
     }
 
     function eliminarPlaneacion(e, id) {
@@ -830,6 +853,14 @@
         selectedPlanId = planeacionesList[0].id;
       }
       renderizarMenuPlaneaciones();
+      guardarTrazadosPlaneacion();
+    }
+
+    function desactivarHerramientaTacticas() {
+      if (drawHandler) {
+        drawHandler.disable();
+        drawHandler = null;
+      }
     }
 
     function setTacticalTool(tool) {
@@ -839,7 +870,33 @@
           btn.classList.remove('active');
         }
       });
-      document.getElementById(`tool-${tool}`).classList.add('active');
+      document.getElementById(`tool-${tool}`)?.classList.add('active');
+
+      desactivarHerramientaTacticas();
+
+      if (tool === 'pencil') {
+        drawHandler = new L.Draw.Polyline(map, {
+          shapeOptions: {
+            color: userTacticalColor,
+            weight: 4,
+            opacity: 0.8
+          }
+        });
+        drawHandler.enable();
+      } else if (tool === 'text') {
+        const textVal = prompt("Ingresa el texto para la mesa táctica:");
+        if (textVal && textVal.trim()) {
+          const center = map.getCenter();
+          const marker = L.marker(center, {
+            icon: L.divIcon({
+              className: 'tactical-text-label',
+              html: `<span style="color: ${userTacticalColor}; font-weight:bold;">${textVal.trim()}</span>`,
+              iconSize: [120, 30]
+            })
+          });
+          drawnItems.addLayer(marker);
+        }
+      }
     }
 
     function abrirModalClear() {
@@ -851,12 +908,90 @@
     }
 
     function confirmarBorrarTodaPlaneacion() {
+      drawnItems.clearLayers();
+      const planIndex = planeacionesList.findIndex(p => p.id === selectedPlanId);
+      if (planIndex !== -1) {
+        planeacionesList[planIndex].drawings = [];
+      }
       cerrarModalClear();
+      guardarTrazadosPlaneacion();
     }
 
-    function guardarTrazadosPlaneacion() {
-      // Función para salvar los dibujos en Supabase
-      alert(`Planeación "${planeacionesList.find(p => p.id === selectedPlanId)?.name}" guardada con éxito.`);
+    async function guardarTrazadosPlaneacion() {
+      const drawings = [];
+      drawnItems.eachLayer(layer => {
+        if (layer instanceof L.Polyline) {
+          drawings.push({
+            type: 'polyline',
+            latlngs: layer.getLatLngs(),
+            color: layer.options.color || userTacticalColor
+          });
+        } else if (layer instanceof L.Marker && layer.options.icon?.options?.html) {
+          drawings.push({
+            type: 'text',
+            latlng: layer.getLatLng(),
+            html: layer.options.icon.options.html
+          });
+        }
+      });
+
+      const planIndex = planeacionesList.findIndex(p => p.id === selectedPlanId);
+      if (planIndex !== -1) {
+        planeacionesList[planIndex].drawings = drawings;
+      }
+
+      const { error } = await supabaseClient.rpc('save_plans', {
+        pass: sessionPass,
+        plans_data: JSON.stringify(planeacionesList)
+      });
+
+      if (error) {
+        console.error("Error al guardar planeación:", error);
+      } else if (radioChannel) {
+        radioChannel.send({
+          type: 'broadcast',
+          event: 'plans-updated',
+          payload: { plans: planeacionesList }
+        });
+      }
+    }
+
+    async function cargarPlaneacionesRealtime() {
+      const { data, error } = await supabaseClient.rpc('get_plans', { pass: sessionPass });
+      if (!error && data) {
+        try {
+          const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            planeacionesList = parsed;
+          }
+        } catch (e) {
+          console.error("Error al procesar planeaciones:", e);
+        }
+      }
+
+      drawnItems.clearLayers();
+      const currentPlan = planeacionesList.find(p => p.id === selectedPlanId) || planeacionesList[0];
+      if (currentPlan && currentPlan.drawings) {
+        currentPlan.drawings.forEach(item => {
+          if (item.type === 'polyline') {
+            const polyline = L.polyline(item.latlngs, {
+              color: item.color || '#ef4444',
+              weight: 4,
+              opacity: 0.8
+            });
+            drawnItems.addLayer(polyline);
+          } else if (item.type === 'text') {
+            const marker = L.marker(item.latlng, {
+              icon: L.divIcon({
+                className: 'tactical-text-label',
+                html: item.html,
+                iconSize: [120, 30]
+              })
+            });
+            drawnItems.addLayer(marker);
+          }
+        });
+      }
     }
 
     const PALETTE = [
@@ -952,6 +1087,16 @@
       map.fitBounds(bounds);
 
       map.on('click', onMapClick);
+      map.on(L.Draw.Event.CREATED, function (event) {
+        if (currentMode !== 'planeacion') return;
+        const layer = event.layer;
+        drawnItems.addLayer(layer);
+        
+        if (currentTool === 'pencil') {
+          setTacticalTool('pencil');
+        }
+      });
+
       generarGaleriaColores();
       generarGaleriaIconos();
       iniciarSincronizacionRealtime();
@@ -1041,6 +1186,14 @@
           localStorage.setItem('radio_alt_offset', altOffset);
           isConfirmingRadio = false;
           updateRadioUI();
+        }
+      });
+
+      radioChannel.on('broadcast', { event: 'plans-updated' }, (payload) => {
+        if (currentMode === 'planeacion' && payload.payload?.plans) {
+          planeacionesList = payload.payload.plans;
+          renderizarMenuPlaneaciones();
+          cargarPlaneacionesRealtime();
         }
       });
 
