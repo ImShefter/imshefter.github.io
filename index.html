@@ -895,18 +895,40 @@
     }
 
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Control' && currentMode === 'planeacion' && currentTool === 'pencil') {
-        if (map) map.dragging.enable();
+      if (e.key === 'Control' && currentMode === 'planeacion') {
+        if (currentTool === 'pencil' || currentTool === 'eraser') {
+          if (map) map.dragging.enable();
+        }
       }
     });
 
     window.addEventListener('keyup', (e) => {
-      if (e.key === 'Control' && currentMode === 'planeacion' && currentTool === 'pencil') {
-        if (map) map.dragging.disable();
+      if (e.key === 'Control' && currentMode === 'planeacion') {
+        if (currentTool === 'pencil' || currentTool === 'eraser') {
+          if (map) map.dragging.disable();
+        }
       }
     });
 
     function setTacticalTool(tool) {
+      currentTool = tool;
+      document.querySelectorAll('.tool-btn').forEach(btn => {
+        if (!btn.classList.contains('danger') && !btn.classList.contains('save-btn')) {
+          btn.classList.remove('active');
+        }
+      });
+      document.getElementById(`tool-${tool}`)?.classList.add('active');
+
+      desactivarHerramientaTacticas();
+
+      if (tool === 'pencil' || tool === 'eraser') {
+        map.dragging.disable();
+        if (tool === 'eraser') {
+          L.DomUtil.addClass(map.getContainer(), 'eraser-mode');
+        }
+      }
+    }
+    function _old_setTacticalTool_disabled(tool) {
       currentTool = tool;
       document.querySelectorAll('.tool-btn').forEach(btn => {
         if (!btn.classList.contains('danger') && !btn.classList.contains('save-btn')) {
@@ -926,8 +948,15 @@
 
     function bindLayerEraser(layer) {
       layer.on('click', function(e) {
-        if (currentMode === 'planeacion' && currentTool === 'eraser') {
+        if (currentMode === 'planeacion' && currentTool === 'eraser' && !e.originalEvent.ctrlKey) {
           L.DomEvent.stopPropagation(e);
+          drawnItems.removeLayer(layer);
+          guardarTrazadosPlaneacion();
+        }
+      });
+
+      layer.on('mouseover', function(e) {
+        if (currentMode === 'planeacion' && currentTool === 'eraser' && e.originalEvent.buttons === 1 && !e.originalEvent.ctrlKey) {
           drawnItems.removeLayer(layer);
           guardarTrazadosPlaneacion();
         }
@@ -1027,6 +1056,9 @@
           const parsed = typeof data === 'string' ? JSON.parse(data) : data;
           if (Array.isArray(parsed) && parsed.length > 0) {
             planeacionesList = parsed;
+            if (!planeacionesList.some(p => p.id === selectedPlanId)) {
+              selectedPlanId = planeacionesList[0].id;
+            }
           }
         } catch (e) {
           console.error("Error al procesar planeaciones:", e);
@@ -1277,6 +1309,7 @@
 
       initMap();
       cargarPuntos();
+      await cargarPlaneacionesRealtime();
 
       setInterval(() => {
         if (currentMode === 'puntos') cargarPuntos();
