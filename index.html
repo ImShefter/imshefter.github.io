@@ -464,7 +464,9 @@
     // LÓGICA DE RADIO FANTASMA Y CONFIRMACIÓN
     const FREQ_MIN = 100.0;
     const FREQ_MAX = 300.0;
-    let altOffset = 0;
+    
+    // PERSISTENCIA: Cargar el desplazamiento inicial almacenado (o 0 si no existe)
+    let altOffset = parseInt(localStorage.getItem('radio_alt_offset')) || 0;
     let isConfirmingRadio = false;
     let radioChannel = null;
 
@@ -531,6 +533,8 @@
 
       if (isConfirmingRadio) {
         altOffset++;
+        // Guardar el nuevo altOffset para que perdure al refrescar la página
+        localStorage.setItem('radio_alt_offset', altOffset);
         isConfirmingRadio = false;
 
         if (radioChannel) {
@@ -745,6 +749,8 @@
       radioChannel.on('broadcast', { event: 'radio-changed' }, (payload) => {
         if (payload.payload && typeof payload.payload.altOffset === 'number') {
           altOffset = payload.payload.altOffset;
+          // Guardar el offset actualizado cuando se reciba por broadcast
+          localStorage.setItem('radio_alt_offset', altOffset);
           isConfirmingRadio = false;
           updateRadioUI();
         }
